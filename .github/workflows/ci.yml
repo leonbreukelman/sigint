@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+      
+      - name: Set up Python
+        run: uv python install 3.11
+      
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --dev
+          uv pip install pytest pytest-cov pre-commit boto3 moto pydantic anthropic feedparser aiohttp
+      
+      - name: Run tests
+        run: uv run pytest tests/ -v --tb=short
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+      
+      - name: Set up Python
+        run: uv python install 3.11
+      
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --dev
+          uv pip install ruff
+      
+      - name: Run ruff check
+        run: uv run ruff check . --fix --exit-zero
+      
+      - name: Run ruff format check
+        run: uv run ruff format --check . || true

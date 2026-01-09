@@ -9,6 +9,7 @@ from aws_cdk import (
     Duration,
     RemovalPolicy,
     CfnOutput,
+    ILocalBundling,
     aws_s3 as s3,
     aws_s3_deployment as s3_deploy,
     aws_cloudfront as cloudfront,
@@ -20,6 +21,55 @@ from aws_cdk import (
     aws_logs as logs,
 )
 import os
+import subprocess
+import shutil
+import jsii
+
+
+@jsii.implements(ILocalBundling)
+class LocalPythonBundler:
+    """Local bundling for Lambda layers when Docker is unavailable."""
+    
+    def __init__(self, source_path: str, requirements_file: str = "requirements.txt"):
+        self.source_path = source_path
+        self.requirements_file = requirements_file
+    
+    def try_bundle(self, output_dir: str, *, image, asset_hash=None, bundling_file_access=None,
+                   command=None, entrypoint=None, environment=None, local=None, network=None,
+                   output_type=None, platform=None, security_opt=None, user=None, volumes=None,
+                   volumes_from=None, working_directory=None) -> bool:
+        """Try to bundle locally without Docker, targeting Lambda runtime."""
+        try:
+            python_dir = os.path.join(output_dir, "python")
+            os.makedirs(python_dir, exist_ok=True)
+            
+            # Install requirements with Lambda-compatible platform
+            requirements_path = os.path.join(self.source_path, self.requirements_file)
+            if os.path.exists(requirements_path):
+                subprocess.run(
+                    [
+                        "pip", "install", 
+                        "-r", requirements_path, 
+                        "-t", python_dir, 
+                        "--platform", "manylinux2014_x86_64",
+                        "--implementation", "cp",
+                        "--python-version", "3.11",
+                        "--only-binary=:all:",
+                        "-q"
+                    ],
+                    check=True,
+                    capture_output=True
+                )
+            
+            # Copy source files
+            shared_dir = os.path.join(python_dir, "shared")
+            shutil.copytree(self.source_path, shared_dir, 
+                           ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache"))
+            
+            return True
+        except Exception as e:
+            print(f"Local bundling failed: {e}")
+            return False
 
 
 class SigintStack(Stack):
@@ -122,6 +172,7 @@ function handler(event) {
         # Lambda Layer (shared code)
         # =================================================================
         
+        shared_path = os.path.join(os.path.dirname(__file__), "..", "lambdas", "shared")
         shared_layer = lambda_.LayerVersion(
             self, "SharedLayer",
             code=lambda_.Code.from_asset(
@@ -131,7 +182,8 @@ function handler(event) {
                     command=[
                         "bash", "-c",
                         "pip install -r requirements.txt -t /asset-output/python && cp -r . /asset-output/python/shared"
-                    ]
+                    ],
+                    local=LocalPythonBundler(os.path.abspath(shared_path)),
                 )
             ),
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
@@ -210,6 +262,30 @@ function handler(event) {
             resources=[f"arn:aws:ssm:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}:parameter/sigint/anthropic-api-key"]
         ))
         
+        # Archive Cleanup Lambda
+        archive_cleanup_fn = lambda_.Function(
+            self, "ArchiveCleanupFunction",
+            function_name="sigint-archive-cleanup",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="handler.handler",
+            code=lambda_.Code.from_asset("../lambdas/archive_cleanup"),
+            layers=[shared_layer],
+            environment={
+                "DATA_BUCKET": data_bucket.bucket_name,
+                "POWERTOOLS_SERVICE_NAME": "sigint-cleanup",
+                "LOG_LEVEL": "INFO"
+            },
+            timeout=Duration.minutes(5),
+            memory_size=256,
+            log_retention=logs.RetentionDays.ONE_WEEK,
+        )
+        data_bucket.grant_read_write(archive_cleanup_fn)
+        # Also need delete permissions for cleanup
+        archive_cleanup_fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["s3:DeleteObject"],
+            resources=[f"{data_bucket.bucket_arn}/archive/*"]
+        ))
+        
         # =================================================================
         # EventBridge Schedules
         # =================================================================
@@ -272,6 +348,28 @@ function handler(event) {
             rule_name="sigint-editor",
             schedule=events.Schedule.rate(Duration.minutes(5)),
             targets=[targets.LambdaFunction(editor_fn)]
+        )
+        
+        # Archive Cleanup - daily at 3 AM UTC
+        events.Rule(
+            self, "ArchiveCleanupSchedule",
+            rule_name="sigint-archive-cleanup",
+            schedule=events.Schedule.cron(hour="3", minute="0"),
+            targets=[targets.LambdaFunction(
+                archive_cleanup_fn,
+                event=events.RuleTargetInput.from_object({"retention_days": 30})
+            )]
+        )
+        
+        # Markets - every 5 min
+        events.Rule(
+            self, "MarketsSchedule",
+            rule_name="sigint-markets",
+            schedule=events.Schedule.rate(Duration.minutes(5)),
+            targets=[targets.LambdaFunction(
+                reporter_fn,
+                event=events.RuleTargetInput.from_object({"category": "markets"})
+            )]
         )
         
         # =================================================================

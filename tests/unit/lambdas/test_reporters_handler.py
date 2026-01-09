@@ -45,6 +45,10 @@ class TestReporterHandler:
                 mock_store.return_value = mock_store_instance
                 mock_store_instance.get_seen_ids.return_value = set()
                 mock_store_instance.get_category_data.return_value = None
+                mock_store_instance.get_feed_config.return_value = {
+                    "global_settings": {"default_age_hours": 24}
+                }
+                mock_fetcher_instance.apply_pre_llm_filters.return_value = []
 
                 from reporters.handler import handler
 
@@ -75,6 +79,10 @@ class TestReporterHandler:
                 mock_store.return_value = mock_store_instance
                 mock_store_instance.get_seen_ids.return_value = set()
                 mock_store_instance.get_category_data.return_value = None
+                mock_store_instance.get_feed_config.return_value = {
+                    "global_settings": {"default_age_hours": 24}
+                }
+                mock_fetcher_instance.apply_pre_llm_filters.return_value = []
 
                 from reporters.handler import handler
 
@@ -118,6 +126,10 @@ class TestReporterHandler:
                 mock_store.return_value = mock_store_instance
                 mock_store_instance.get_seen_ids.return_value = set()
                 mock_store_instance.get_category_data.return_value = None
+                mock_store_instance.get_feed_config.return_value = {
+                    "global_settings": {"default_age_hours": 24}
+                }
+                mock_fetcher_instance.apply_pre_llm_filters.return_value = sample_raw_feed_items
 
                 from reporters.handler import handler
 
@@ -152,6 +164,10 @@ class TestReporterHandler:
                     item.id for item in sample_raw_feed_items
                 }
                 mock_store_instance.get_category_data.return_value = None
+                mock_store_instance.get_feed_config.return_value = {
+                    "global_settings": {"default_age_hours": 24}
+                }
+                mock_fetcher_instance.apply_pre_llm_filters.return_value = []
 
                 from reporters.handler import handler
 

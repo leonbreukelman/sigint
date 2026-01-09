@@ -175,7 +175,12 @@ class LLMClient:
         self.client = anthropic.Anthropic(api_key=self.api_key)
         self.model = model
 
-    def _build_analysis_prompt(self, category: Category, items: list[RawFeedItem]) -> str:
+    def _build_analysis_prompt(
+        self,
+        category: Category,
+        items: list[RawFeedItem],
+        prediction_markets: list[RawFeedItem] | None = None,
+    ) -> str:
         """Build the analysis prompt for a category"""
         items_text = "\n\n".join(
             [
@@ -184,13 +189,37 @@ class LLMClient:
             ]
         )
 
+        # Build prediction markets section if provided
+        pm_section = ""
+        if prediction_markets:
+            pm_text = "\n".join(
+                [
+                    f"[PM-{i + 1}] {item.source}: {item.title}\n   {item.description}"
+                    for i, item in enumerate(prediction_markets[:30])  # Show more markets
+                ]
+            )
+            pm_section = f"""
+
+=== PREDICTION MARKETS (ACTIVELY MATCH THESE) ===
+{pm_text}
+
+PREDICTION MARKET MATCHING - IMPORTANT:
+For EACH selected news item, ACTIVELY LOOK for a related prediction market.
+Matches should be included when there's ANY meaningful connection:
+- DIRECT: Same event/entity (OpenAI news → OpenAI IPO market)
+- THEMATIC: Same domain (AI safety research → AI legislation market)
+- CONTEXTUAL: Related implications (Meta nuclear plans → energy/tech infrastructure markets)
+
+Aim to match at least 2-3 items with prediction markets. Add value for readers by linking news to probabilistic forecasts.
+"""
+
         return f"""Analyze these news items and select the TOP 5 most relevant for your category.
 
 {CATEGORY_PROMPTS[category]}
 
 === ITEMS TO ANALYZE ===
 {items_text}
-
+{pm_section}
 === YOUR TASK ===
 Select exactly 5 items (or fewer if less than 5 are relevant).
 For each selected item, provide:
@@ -200,6 +229,7 @@ For each selected item, provide:
 4. Relevance score: 0.0 to 1.0
 5. Key entities mentioned (people, companies, countries)
 6. Tags (2-4 topic tags)
+7. prediction_market: Include if ANY prediction market relates to this item's topic/entity
 
 Respond in this exact JSON format:
 {{
@@ -210,11 +240,14 @@ Respond in this exact JSON format:
       "urgency": "normal",
       "relevance_score": 0.85,
       "entities": ["Entity1", "Entity2"],
-      "tags": ["tag1", "tag2"]
+      "tags": ["tag1", "tag2"],
+      "prediction_market": {{"pm_number": 1}}
     }}
   ],
   "agent_notes": "Brief note about the current state of this category (1 sentence)"
-}}"""
+}}
+
+IMPORTANT: Actively match prediction markets to news items. If a news item mentions OpenAI, check for OpenAI markets. If it mentions AI policy, check for AI legislation markets. Include the match to add probabilistic context."""
 
     def _build_narrative_prompt(self, all_items: dict[str, list[NewsItem]]) -> str:
         """Build prompt for narrative pattern detection"""
@@ -256,13 +289,25 @@ Respond in this exact JSON format:
 If no significant patterns, return: {{"patterns": []}}"""
 
     def analyze_items(
-        self, category: Category, items: list[RawFeedItem]
+        self,
+        category: Category,
+        items: list[RawFeedItem],
+        prediction_markets: list[RawFeedItem] | None = None,
     ) -> tuple[list[dict[str, Any]], str]:
-        """Analyze items and return selected items with metadata and agent notes"""
+        """Analyze items and return selected items with metadata and agent notes.
+        
+        Args:
+            category: The news category being analyzed
+            items: List of raw feed items to analyze
+            prediction_markets: Optional list of prediction market items for matching
+        
+        Returns:
+            Tuple of (selected items with metadata, agent notes string)
+        """
         if not items:
             return [], ""
 
-        prompt = self._build_analysis_prompt(category, items)
+        prompt = self._build_analysis_prompt(category, items, prediction_markets)
 
         try:
             response = self.client.messages.create(

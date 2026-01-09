@@ -67,6 +67,10 @@
   "global_settings": {
     "max_items_per_feed": 50,
     "dedup_window_hours": 24,
-    "archive_retention_days": 30
+    "archive_retention_days": 30,
+    "default_age_hours": 24,
+    "max_age_hours": 720,
+    "similarity_threshold": 0.7,
+    "max_items_per_source": 5
   }
 }

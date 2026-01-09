@@ -149,6 +149,223 @@ class S3Store:
 
         return items
 
+    def get_archive_range(
+        self, category: Category, days: int = 7
+    ) -> list[NewsItem]:
+        """Get archived items for the last N days.
+        
+        Args:
+            category: The news category to fetch archives for
+            days: Number of days to look back (default 7, max 30)
+        
+        Returns:
+            List of NewsItem objects from the archive, sorted newest first.
+            Missing archive files for specific days are handled gracefully.
+        """
+        # Clamp days to valid range
+        days = max(1, min(days, 30))
+        
+        items = []
+        for i in range(days):
+            date = (datetime.now(UTC) - timedelta(days=i)).strftime("%Y-%m-%d")
+            try:
+                day_items = self.get_archive(category, date)
+                items.extend(day_items)
+            except Exception as e:
+                # Log but continue - missing days are expected
+                logger.debug(f"No archive for {category.value} on {date}: {e}")
+        
+        # Sort by published date (newest first)
+        items.sort(
+            key=lambda x: x.published_at or x.fetched_at or datetime.min.replace(tzinfo=UTC),
+            reverse=True
+        )
+        
+        logger.info(f"Archive range: fetched {len(items)} items for {category.value} over {days} days")
+        return items
+
+    def list_archive_dates(self) -> list[str]:
+        """List all available archive dates.
+        
+        Returns:
+            List of date strings (YYYY-MM-DD) that have archive data,
+            sorted newest first.
+        """
+        try:
+            response = self.s3.list_objects_v2(
+                Bucket=self.bucket_name,
+                Prefix="archive/",
+                Delimiter="/"
+            )
+            
+            dates = []
+            for prefix in response.get("CommonPrefixes", []):
+                # Extract date from prefix like "archive/2026-01-09/"
+                date_str = prefix["Prefix"].replace("archive/", "").rstrip("/")
+                if date_str:
+                    dates.append(date_str)
+            
+            # Sort newest first
+            dates.sort(reverse=True)
+            return dates
+        except Exception as e:
+            logger.error(f"Error listing archive dates: {e}")
+            return []
+
+    def update_archive_index(self) -> dict[str, Any]:
+        """Update the archive index with available dates and item counts.
+        
+        Creates/updates archive/index.json with:
+        - available_dates: List of dates with archive data
+        - total_items_by_category: Count of items per category
+        - last_updated: Timestamp of index update
+        
+        Returns:
+            The index data that was written.
+        """
+        available_dates = self.list_archive_dates()
+        
+        # Count items per category across all dates
+        category_counts: dict[str, int] = {cat.value: 0 for cat in Category}
+        
+        for date in available_dates[:30]:  # Limit to last 30 days for performance
+            for category in Category:
+                try:
+                    items = self.get_archive(category, date)
+                    category_counts[category.value] += len(items)
+                except Exception:
+                    pass  # Skip missing files
+        
+        index_data = {
+            "available_dates": available_dates,
+            "total_items_by_category": category_counts,
+            "last_updated": datetime.now(UTC).isoformat(),
+            "retention_days": 30,
+        }
+        
+        self._write_json("archive/index.json", index_data, cache_control="max-age=3600")
+        logger.info(f"Updated archive index: {len(available_dates)} dates, {sum(category_counts.values())} total items")
+        return index_data
+
+    def get_archive_index(self) -> dict[str, Any] | None:
+        """Get the archive index.
+        
+        Returns:
+            Archive index data or None if not found.
+        """
+        return self._read_json("archive/index.json")
+
+    def cleanup_old_archives(self, retention_days: int = 30) -> dict[str, Any]:
+        """Delete archives older than retention_days.
+        
+        Args:
+            retention_days: Number of days to retain (default 30)
+        
+        Returns:
+            Summary of cleanup operation.
+        """
+        cutoff_date = (datetime.now(UTC) - timedelta(days=retention_days)).strftime("%Y-%m-%d")
+        available_dates = self.list_archive_dates()
+        
+        deleted_dates = []
+        deleted_count = 0
+        errors = []
+        
+        for date in available_dates:
+            if date < cutoff_date:
+                try:
+                    # List all objects in this date folder
+                    prefix = f"archive/{date}/"
+                    response = self.s3.list_objects_v2(
+                        Bucket=self.bucket_name,
+                        Prefix=prefix
+                    )
+                    
+                    # Delete each object
+                    for obj in response.get("Contents", []):
+                        self.s3.delete_object(
+                            Bucket=self.bucket_name,
+                            Key=obj["Key"]
+                        )
+                        deleted_count += 1
+                    
+                    deleted_dates.append(date)
+                    logger.info(f"Deleted archive for {date}")
+                except Exception as e:
+                    errors.append({"date": date, "error": str(e)})
+                    logger.error(f"Error deleting archive for {date}: {e}")
+        
+        result = {
+            "deleted_dates": deleted_dates,
+            "deleted_files": deleted_count,
+            "errors": errors,
+            "cutoff_date": cutoff_date,
+        }
+        
+        logger.info(f"Archive cleanup: deleted {len(deleted_dates)} dates, {deleted_count} files")
+        return result
+
+    def export_archive_json(self, category: Category, days: int = 7) -> str:
+        """Export archive data as JSON string.
+        
+        Args:
+            category: The category to export
+            days: Number of days to include
+        
+        Returns:
+            JSON string of archive data
+        """
+        items = self.get_archive_range(category, days)
+        export_data = {
+            "category": category.value,
+            "days": days,
+            "exported_at": datetime.now(UTC).isoformat(),
+            "item_count": len(items),
+            "items": [item.model_dump() for item in items],
+        }
+        return json.dumps(export_data, default=self._json_serializer, indent=2)
+
+    def export_archive_csv(self, category: Category, days: int = 7) -> str:
+        """Export archive data as CSV string.
+        
+        Args:
+            category: The category to export
+            days: Number of days to include
+        
+        Returns:
+            CSV string of archive data
+        """
+        import csv
+        from io import StringIO
+        
+        items = self.get_archive_range(category, days)
+        
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Header
+        writer.writerow([
+            "id", "title", "summary", "url", "source", "category",
+            "urgency", "relevance_score", "published_at", "fetched_at"
+        ])
+        
+        # Data rows
+        for item in items:
+            writer.writerow([
+                item.id,
+                item.title,
+                item.summary[:200] if item.summary else "",  # Truncate summary
+                item.url,
+                item.source,
+                item.category.value,
+                item.urgency.value,
+                item.relevance_score,
+                item.published_at.isoformat() if item.published_at else "",
+                item.fetched_at.isoformat() if item.fetched_at else "",
+            ])
+        
+        return output.getvalue()
+
     # =========================================================================
     # Narrative Patterns
     # =========================================================================
