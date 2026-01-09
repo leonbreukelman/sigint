@@ -5,8 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SIGINT // Intelligence Dashboard</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="map.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Leaflet MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
 </head>
 <body>
     <div class="container">
@@ -47,6 +53,30 @@
                 <!-- Ticker items injected here -->
             </div>
         </div>
+
+        <!-- World Map Section -->
+        <section class="map-section" id="mapSection">
+            <div class="map-header" id="mapHeader">
+                <div class="map-title">
+                    <span class="map-icon">🌐</span>
+                    <span>GLOBAL INTEL MAP</span>
+                </div>
+                <div class="map-controls">
+                    <span class="map-stats" id="mapStats">0 events</span>
+                    <button class="map-toggle" id="mapToggle">▼</button>
+                </div>
+            </div>
+            <div class="map-container" id="mapContainer">
+                <div id="worldMap"></div>
+                <div class="map-legend" id="mapLegend">
+                    <div class="legend-item"><span class="legend-dot geo"></span>Geopolitical</div>
+                    <div class="legend-item"><span class="legend-dot ai"></span>AI/ML</div>
+                    <div class="legend-item"><span class="legend-dot tech"></span>Deep Tech</div>
+                    <div class="legend-item"><span class="legend-dot crypto"></span>Crypto/Finance</div>
+                    <div class="legend-item"><span class="legend-dot narrative"></span>Narrative</div>
+                </div>
+            </div>
+        </section>
 
         <!-- Main Grid -->
         <main class="dashboard-grid">
@@ -137,6 +167,11 @@
         </div>
     </div>
 
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Leaflet MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <script src="map.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

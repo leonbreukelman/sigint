@@ -241,6 +241,8 @@ function updateStatus(status, text) {
 async function updateDashboard() {
     updateStatus('', 'UPDATING');
     
+    let allCategoriesData = {};
+    
     try {
         // Try to fetch complete dashboard state first
         let dashboardData;
@@ -253,6 +255,8 @@ async function updateDashboard() {
         
         if (dashboardData && dashboardData.categories) {
             // Use dashboard data
+            allCategoriesData = dashboardData.categories;
+            
             for (const [category, data] of Object.entries(dashboardData.categories)) {
                 if (category === 'markets') {
                     renderTicker(data);
@@ -269,7 +273,10 @@ async function updateDashboard() {
             // Markets not in dashboard.json, fetch separately
             if (!dashboardData.categories.markets) {
                 const marketsData = await fetchCategoryData('markets');
-                if (marketsData) renderTicker(marketsData);
+                if (marketsData) {
+                    renderTicker(marketsData);
+                    allCategoriesData.markets = marketsData;
+                }
             }
             
             state.lastUpdate = dashboardData.last_updated || new Date().toISOString();
@@ -281,6 +288,7 @@ async function updateDashboard() {
                 const data = await fetchCategoryData(category);
                 if (data) {
                     renderPanel(category, data);
+                    allCategoriesData[category] = data;
                 }
             }
             
@@ -288,13 +296,22 @@ async function updateDashboard() {
             const breakingData = await fetchCategoryData('breaking');
             if (breakingData) {
                 renderBreaking(breakingData.items);
+                allCategoriesData.breaking = breakingData;
             }
             
             // Fetch markets
             const marketsData = await fetchCategoryData('markets');
-            if (marketsData) renderTicker(marketsData);
+            if (marketsData) {
+                renderTicker(marketsData);
+                allCategoriesData.markets = marketsData;
+            }
             
             state.lastUpdate = new Date().toISOString();
+        }
+        
+        // Update the world map with all category data
+        if (typeof SigintMap !== 'undefined' && SigintMap.update) {
+            SigintMap.update(allCategoriesData);
         }
         
         elements.lastUpdate.textContent = formatTime(state.lastUpdate);

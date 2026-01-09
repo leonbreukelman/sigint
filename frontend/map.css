@@ -1,0 +1,362 @@
+/* ============================================
+   SIGINT World Map - Dark Terminal Theme
+   ============================================ */
+
+/* Map Section Container */
+.map-section {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    margin-bottom: var(--gap);
+    overflow: hidden;
+}
+
+.map-section:hover {
+    border-color: var(--border-active);
+}
+
+/* Map Header */
+.map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px var(--panel-padding);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    user-select: none;
+}
+
+.map-header:hover {
+    background: var(--bg-hover);
+}
+
+.map-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+}
+
+.map-icon {
+    font-size: 1rem;
+}
+
+.map-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.map-stats {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    color: var(--accent-green);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.map-toggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: transform 0.3s ease;
+}
+
+.map-toggle:hover {
+    color: var(--text-primary);
+}
+
+.map-section.collapsed .map-toggle {
+    transform: rotate(-90deg);
+}
+
+/* Map Container */
+.map-container {
+    position: relative;
+    height: 300px;
+    transition: height 0.3s ease;
+}
+
+.map-section.collapsed .map-container {
+    height: 0;
+    overflow: hidden;
+}
+
+#worldMap {
+    width: 100%;
+    height: 100%;
+    background: #0a0a0f;
+}
+
+/* Override Leaflet styles for dark theme */
+.leaflet-container {
+    background: #0a0a0f;
+    font-family: var(--font-sans);
+}
+
+.leaflet-control-zoom {
+    border: none !important;
+    margin: 12px !important;
+}
+
+.leaflet-control-zoom a {
+    background: var(--bg-panel) !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    width: 28px !important;
+    height: 28px !important;
+    line-height: 26px !important;
+    font-size: 14px !important;
+}
+
+.leaflet-control-zoom a:hover {
+    background: var(--bg-hover) !important;
+    color: var(--accent-green) !important;
+    border-color: var(--accent-green) !important;
+}
+
+.leaflet-control-zoom-in {
+    border-radius: var(--radius) var(--radius) 0 0 !important;
+}
+
+.leaflet-control-zoom-out {
+    border-radius: 0 0 var(--radius) var(--radius) !important;
+}
+
+/* Attribution */
+.leaflet-control-attribution {
+    background: rgba(10, 10, 15, 0.8) !important;
+    color: var(--text-muted) !important;
+    font-size: 0.5rem !important;
+    padding: 2px 6px !important;
+}
+
+.leaflet-control-attribution a {
+    color: var(--text-secondary) !important;
+}
+
+/* Custom Popups */
+.leaflet-popup-content-wrapper {
+    background: var(--bg-panel) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+.leaflet-popup-content {
+    margin: 12px !important;
+    color: var(--text-primary) !important;
+    font-size: 0.75rem !important;
+    line-height: 1.4 !important;
+    max-width: 280px !important;
+}
+
+.leaflet-popup-tip {
+    background: var(--bg-panel) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: none !important;
+}
+
+.leaflet-popup-close-button {
+    color: var(--text-muted) !important;
+    font-size: 18px !important;
+    padding: 4px 8px !important;
+}
+
+.leaflet-popup-close-button:hover {
+    color: var(--accent-red) !important;
+}
+
+/* Popup Content Styling */
+.map-popup {
+    font-family: var(--font-sans);
+}
+
+.map-popup-category {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.map-popup-category.geo { color: var(--accent-red); }
+.map-popup-category.ai { color: var(--accent-blue); }
+.map-popup-category.tech { color: var(--accent-purple); }
+.map-popup-category.crypto { color: var(--accent-yellow); }
+.map-popup-category.narrative { color: var(--accent-green); }
+
+.map-popup-title {
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+}
+
+.map-popup-title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.map-popup-title a:hover {
+    color: var(--accent-green);
+}
+
+.map-popup-meta {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+}
+
+.map-popup-source {
+    color: var(--accent-blue);
+}
+
+/* Legend */
+.map-legend {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(22, 22, 31, 0.95);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    z-index: 1000;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.legend-dot.geo { background: var(--accent-red); }
+.legend-dot.ai { background: var(--accent-blue); }
+.legend-dot.tech { background: var(--accent-purple); }
+.legend-dot.crypto { background: var(--accent-yellow); }
+.legend-dot.narrative { background: var(--accent-green); }
+
+/* Custom Markers */
+.sigint-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: transform 0.2s ease;
+}
+
+.sigint-marker:hover {
+    transform: scale(1.2);
+    z-index: 1000 !important;
+}
+
+.sigint-marker.geo { background: var(--accent-red); }
+.sigint-marker.ai { background: var(--accent-blue); }
+.sigint-marker.tech { background: var(--accent-purple); }
+.sigint-marker.crypto { background: var(--accent-yellow); }
+.sigint-marker.narrative { background: var(--accent-green); }
+
+/* Marker Cluster Overrides */
+.marker-cluster {
+    background: rgba(22, 22, 31, 0.9) !important;
+    border: 2px solid var(--accent-green) !important;
+}
+
+.marker-cluster div {
+    background: transparent !important;
+    color: var(--accent-green) !important;
+    font-family: var(--font-mono) !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+}
+
+.marker-cluster-small {
+    border-color: var(--accent-blue) !important;
+}
+.marker-cluster-small div {
+    color: var(--accent-blue) !important;
+}
+
+.marker-cluster-medium {
+    border-color: var(--accent-yellow) !important;
+}
+.marker-cluster-medium div {
+    color: var(--accent-yellow) !important;
+}
+
+.marker-cluster-large {
+    border-color: var(--accent-red) !important;
+}
+.marker-cluster-large div {
+    color: var(--accent-red) !important;
+}
+
+/* Pulse animation for recent events */
+@keyframes marker-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.6);
+    }
+    70% {
+        box-shadow: 0 0 0 12px rgba(0, 255, 136, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 136, 0);
+    }
+}
+
+.sigint-marker.recent {
+    animation: marker-pulse 2s infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .map-container {
+        height: 200px;
+    }
+    
+    .map-legend {
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        justify-content: center;
+    }
+    
+    .legend-item {
+        font-size: 0.5rem;
+    }
+}
+
+@media (min-width: 1200px) {
+    .map-container {
+        height: 350px;
+    }
+}
