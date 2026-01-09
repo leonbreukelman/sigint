@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGINT // Intelligence Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1 class="logo">
+                    <span class="logo-bracket">[</span>
+                    <span class="logo-text">SIGINT</span>
+                    <span class="logo-bracket">]</span>
+                </h1>
+                <span class="tagline">// signals intelligence</span>
+            </div>
+            <div class="header-right">
+                <div class="status-indicator">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span class="status-text" id="statusText">CONNECTING</span>
+                </div>
+                <div class="last-update">
+                    <span class="label">LAST UPDATE:</span>
+                    <span id="lastUpdate">--:--:--</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Breaking News Banner -->
+        <section class="breaking-section" id="breakingSection" style="display: none;">
+            <div class="breaking-header">
+                <span class="breaking-icon">⚡</span>
+                <span class="breaking-label">BREAKING</span>
+            </div>
+            <div class="breaking-items" id="breakingItems"></div>
+        </section>
+
+        <!-- Main Grid -->
+        <main class="dashboard-grid">
+            <!-- Geopolitical -->
+            <section class="panel" data-category="geopolitical">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">🌍</span>
+                        GEOPOLITICAL
+                    </h2>
+                    <span class="panel-update" data-update></span>
+                </div>
+                <div class="panel-content" data-items></div>
+            </section>
+
+            <!-- AI/ML -->
+            <section class="panel" data-category="ai-ml">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">🤖</span>
+                        AI / ML
+                    </h2>
+                    <span class="panel-update" data-update></span>
+                </div>
+                <div class="panel-content" data-items></div>
+            </section>
+
+            <!-- Deep Tech -->
+            <section class="panel" data-category="deep-tech">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">⚙️</span>
+                        DEEP TECH
+                    </h2>
+                    <span class="panel-update" data-update></span>
+                </div>
+                <div class="panel-content" data-items></div>
+            </section>
+
+            <!-- Crypto/Finance -->
+            <section class="panel" data-category="crypto-finance">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">📊</span>
+                        CRYPTO / FINANCE
+                    </h2>
+                    <span class="panel-update" data-update></span>
+                </div>
+                <div class="panel-content" data-items></div>
+            </section>
+
+            <!-- Narrative Tracker (wider) -->
+            <section class="panel panel-wide" data-category="narrative">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">🔗</span>
+                        NARRATIVE TRACKER
+                    </h2>
+                    <span class="panel-update" data-update></span>
+                </div>
+                <div class="panel-content narrative-content" data-items></div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-left">
+                <span class="footer-text">Auto-refresh: <span id="refreshCountdown">60</span>s</span>
+            </div>
+            <div class="footer-right">
+                <button class="btn-archive" id="archiveBtn">24H ARCHIVE</button>
+                <button class="btn-refresh" id="refreshBtn">↻ REFRESH</button>
+            </div>
+        </footer>
+
+        <!-- Archive Modal -->
+        <div class="modal" id="archiveModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>24H ARCHIVE</h3>
+                    <button class="modal-close" id="archiveClose">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="archive-tabs" id="archiveTabs"></div>
+                    <div class="archive-content" id="archiveContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

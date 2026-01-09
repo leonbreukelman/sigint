@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "categories": {
+    "geopolitical": {
+      "feeds": [
+        {"url": "https://feeds.bbci.co.uk/news/world/rss.xml", "name": "BBC World"},
+        {"url": "https://feeds.npr.org/1001/rss.xml", "name": "NPR"},
+        {"url": "https://www.theguardian.com/world/rss", "name": "The Guardian"},
+        {"url": "https://www.reutersagency.com/feed/?taxonomy=best-sectors&post_type=best", "name": "Reuters"},
+        {"url": "https://www.csis.org/analysis/feed", "name": "CSIS"},
+        {"url": "https://www.brookings.edu/feed/", "name": "Brookings"},
+        {"url": "https://www.cfr.org/rss.xml", "name": "CFR"},
+        {"url": "https://www.defenseone.com/rss/all/", "name": "Defense One"},
+        {"url": "https://warontherocks.com/feed/", "name": "War on the Rocks"},
+        {"url": "https://breakingdefense.com/feed/", "name": "Breaking Defense"},
+        {"url": "https://www.thedrive.com/the-war-zone/feed", "name": "The War Zone"},
+        {"url": "https://thediplomat.com/feed/", "name": "The Diplomat"},
+        {"url": "https://www.al-monitor.com/rss", "name": "Al-Monitor"},
+        {"url": "https://www.bellingcat.com/feed/", "name": "Bellingcat"},
+        {"url": "https://www.state.gov/rss-feed/press-releases/feed/", "name": "State Dept"}
+      ],
+      "refresh_minutes": 15
+    },
+    "ai-ml": {
+      "feeds": [
+        {"url": "https://hnrss.org/frontpage", "name": "Hacker News"},
+        {"url": "https://rss.arxiv.org/rss/cs.AI", "name": "ArXiv AI"},
+        {"url": "https://openai.com/blog/rss.xml", "name": "OpenAI"},
+        {"url": "https://www.anthropic.com/rss.xml", "name": "Anthropic"},
+        {"url": "https://blog.google/technology/ai/rss/", "name": "Google AI"},
+        {"url": "https://deepmind.google/blog/rss.xml", "name": "DeepMind"},
+        {"url": "https://ai.meta.com/blog/rss/", "name": "Meta AI"},
+        {"url": "https://huggingface.co/blog/feed.xml", "name": "Hugging Face"},
+        {"url": "https://feeds.arstechnica.com/arstechnica/technology-lab", "name": "Ars Technica"},
+        {"url": "https://www.theverge.com/rss/index.xml", "name": "The Verge"},
+        {"url": "https://www.technologyreview.com/feed/", "name": "MIT Tech Review"}
+      ],
+      "refresh_minutes": 10
+    },
+    "deep-tech": {
+      "feeds": [
+        {"url": "https://hnrss.org/frontpage", "name": "Hacker News"},
+        {"url": "https://feeds.arstechnica.com/arstechnica/technology-lab", "name": "Ars Technica"},
+        {"url": "https://www.theverge.com/rss/index.xml", "name": "The Verge"},
+        {"url": "https://www.technologyreview.com/feed/", "name": "MIT Tech Review"},
+        {"url": "https://rss.arxiv.org/rss/quant-ph", "name": "ArXiv Quantum"},
+        {"url": "https://www.cisa.gov/uscert/ncas/alerts.xml", "name": "CISA Alerts"},
+        {"url": "https://krebsonsecurity.com/feed/", "name": "Krebs on Security"}
+      ],
+      "refresh_minutes": 15
+    },
+    "crypto-finance": {
+      "feeds": [
+        {"url": "https://www.cnbc.com/id/100003114/device/rss/rss.html", "name": "CNBC"},
+        {"url": "https://feeds.marketwatch.com/marketwatch/topstories", "name": "MarketWatch"},
+        {"url": "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best", "name": "Reuters Finance"},
+        {"url": "https://www.federalreserve.gov/feeds/press_all.xml", "name": "Federal Reserve"},
+        {"url": "https://www.sec.gov/news/pressreleases.rss", "name": "SEC"}
+      ],
+      "apis": [
+        {"url": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true", "name": "CoinGecko"},
+        {"url": "https://gamma-api.polymarket.com/markets?closed=false&order=volume&ascending=false&limit=25", "name": "Polymarket"}
+      ],
+      "refresh_minutes": 5
+    }
+  },
+  "global_settings": {
+    "max_items_per_feed": 50,
+    "dedup_window_hours": 24,
+    "archive_retention_days": 30
+  }
+}
