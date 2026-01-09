@@ -1,50 +1,85 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+  ⚠️ AUTO-GENERATED FILE - DO NOT EDIT DIRECTLY
+
+  This file is rendered from the authoritative YAML catalog:
+    .specify/memory/governance-catalog.yaml
+
+  To modify governance principles, use the smactorio CLI:
+    uv run smactorio constitution list          # View principles
+    uv run smactorio constitution add ...       # Add principle
+    uv run smactorio constitution edit ...      # Edit principle
+    uv run smactorio constitution remove ...    # Remove principle
+
+  Changes made directly to this file WILL BE OVERWRITTEN.
+-->
+
+> [!WARNING]
+> **This file is auto-generated from governance-catalog.yaml.**
+> Do not edit directly. Use `uv run smactorio constitution` CLI commands.
+
+# Smactorio Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### core-001. Documentation Required
+All features in sigint MUST be documented before release.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+**Rationale**: Documentation ensures knowledge transfer and reduces onboarding time for new team members.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Category Enum Exhaustiveness (NON-NEGOTIABLE)
+When adding new news categories to sigint, you MUST: 1) Add to Category enum in shared/models.py, 2) Add feed configuration in CATEGORY_FEEDS, 3) Add LLM prompt in CATEGORY_PROMPTS, 4) Add EventBridge schedule in infrastructure/app.py, 5) Update config/feeds.json.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+## Development Workflow
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### dev-001. Version Control
+All code changes in sigint MUST be committed to version control with meaningful commit messages.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+**Rationale**: Version control provides audit trail, enables collaboration, and supports rollback capabilities.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### II. Pydantic Models Required (NON-NEGOTIABLE)
+All data structures exchanged between components in sigint MUST use Pydantic models defined in shared/models.py. Never use raw dicts for domain objects (NewsItem, CategoryData, NarrativePattern, etc.).
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### III. Feed Configuration Source
+Feed URLs for categories SHOULD be defined in config/feeds.json as the canonical source. The CATEGORY_FEEDS dict in handler.py is the runtime source; any new feeds should be added to both. Prefer external config over hardcoded values.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### IV. LLM Prompt Versioning
+LLM prompts in CATEGORY_PROMPTS (llm_client.py) SHOULD be treated as critical business logic. Changes to prompts require: 1) documenting the intent, 2) testing with sample inputs, 3) considering cost implications (token usage).
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+## Architecture
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+### arch-001. Infrastructure as Code
+Infrastructure for sigint SHOULD be defined as code and version controlled.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Rationale**: IaC ensures reproducible deployments, enables disaster recovery, and documents infrastructure decisions.
+
+### II. Lambda Handler Contract (NON-NEGOTIABLE)
+All Lambda handlers in sigint MUST follow the established pattern: accept (event: dict, context: Any) -> dict with statusCode and body keys. Handlers MUST use structured logging and include duration_ms in success responses.
+
+### III. Shared Module Usage (NON-NEGOTIABLE)
+All Lambda functions MUST import shared modules via the Lambda layer pattern (from shared.X import Y). Never use relative imports or hardcode paths. The shared layer provides: models, feed_fetcher, llm_client, s3_store.
+
+### IV. Secrets via SSM Only (NON-NEGOTIABLE)
+All secrets in sigint (API keys, credentials) MUST be stored in AWS SSM Parameter Store with SecureString type. Lambda functions MUST fetch secrets at runtime via the ANTHROPIC_API_KEY_SSM_PARAM pattern. Never hardcode or commit secrets.
+
+### V. S3 Key Naming Convention (NON-NEGOTIABLE)
+S3 keys in sigint MUST follow the pattern: current/{category}.json for live data, archive/{YYYY-MM-DD}/{category}.json for historical data, current/dashboard.json for frontend state, current/narratives.json for patterns.
+
+## Quality & Testing
+
+### qual-001. Automated Testing
+All features in sigint MUST have automated tests before deployment.
+
+**Rationale**: Automated testing catches regressions early and enables confident refactoring.
+
+### II. LLM Error Handling (NON-NEGOTIABLE)
+All LLM calls in sigint MUST have explicit error handling with: 1) timeout handling, 2) graceful degradation on API errors, 3) structured logging of failures, 4) fallback behavior that allows the system to continue operating.
+
+### III. Mock AWS in Tests (NON-NEGOTIABLE)
+All unit tests for Lambda handlers and S3Store MUST use moto (@mock_aws) to mock AWS services. Tests MUST NOT make real AWS API calls. Integration tests requiring real AWS should be marked with @pytest.mark.integration.
+
+### IV. Relevance Score Bounds (NON-NEGOTIABLE)
+All relevance_score and strength values in sigint MUST be floats between 0.0 and 1.0 inclusive. Pydantic Field constraints (ge=0, le=1) enforce this. Never use unbounded numeric scores.
+
+---
+
+**Version**: 1.15.0 | **Last Modified**: 2026-01-09

@@ -10,6 +10,9 @@ An AI-powered news intelligence platform that autonomously scans, curates, and p
 │  │ GEOPOLITICAL│ │   AI / ML   │ │  DEEP TECH  │ │  CRYPTO   │ │
 │  │             │ │             │ │             │ │  FINANCE  │ │
 │  └─────────────┘ └─────────────┘ └─────────────┘ └───────────┘ │
+│  ══════════════════════════════════════════════════════════════ │
+│  ◀ BTC $90,269 ▲+0.5%  ETH $3,421 ▼-1.2%  SOL $138 ▲+2.9% ...  │
+│  ══════════════════════════════════════════════════════════════ │
 │  ┌───────────────────────────────────────────────────────────┐ │
 │  │              NARRATIVE TRACKER                            │ │
 │  └───────────────────────────────────────────────────────────┘ │
@@ -19,6 +22,7 @@ An AI-powered news intelligence platform that autonomously scans, curates, and p
 ## Features
 
 - **Autonomous AI Reporters**: Each category has its own AI agent that scans relevant RSS feeds and APIs
+- **Markets Ticker**: Bloomberg-style scrolling ticker with live crypto prices. An AI agent monitors price movements and highlights notable movers (>5% swings) for display
 - **Narrative Detection**: Cross-source pattern recognition identifies emerging trends
 - **Breaking News**: Editor agent elevates urgent items automatically
 - **24H Archive**: Full history of all curated items
@@ -56,6 +60,7 @@ CloudFront CDN
 | **AI/ML** | 10 min | Models, research, AI companies |
 | **Geopolitical** | 15 min | Conflicts, diplomacy, policy |
 | **Deep Tech** | 15 min | Semiconductors, quantum, biotech |
+| **Markets** | 5 min | Crypto prices via CoinGecko, LLM highlights movers |
 | **Narrative** | 30 min | Cross-source pattern detection |
 | **Editor** | 5 min | Breaking news synthesis |
 
@@ -105,6 +110,7 @@ The agents run on schedules. First data should appear within ~15 minutes.
 | CloudFront | $8-10 |
 | EventBridge | ~$0.15 |
 | Claude Haiku | $15-25 |
+| CoinGecko API | Free (no key) |
 | **Total** | **~$30-50** |
 
 ## Local Development
@@ -116,6 +122,15 @@ cd lambdas
 export ANTHROPIC_API_KEY=your-key
 export DATA_BUCKET=your-bucket
 python -c "from reporters.handler import handler; print(handler({'category': 'ai-ml'}, None))"
+```
+
+### Test Markets Ticker Locally
+
+```bash
+cd lambdas
+export ANTHROPIC_API_KEY=your-key
+export DATA_BUCKET=your-bucket
+python -c "from reporters.handler import handler; print(handler({'category': 'markets'}, None))"
 ```
 
 ### View Frontend Locally
@@ -159,6 +174,12 @@ events.Rule(
 
 Edit `lambdas/shared/llm_client.py` and modify `CATEGORY_PROMPTS`.
 
+For the Markets ticker, adjust the selection threshold (default >5% price change) in `CATEGORY_PROMPTS[Category.MARKETS]`:
+
+```python
+Category.MARKETS: """You are a market analyst. Prioritize coins with >5% 24h price movement..."""
+```
+
 ## Data Structure
 
 ```
@@ -168,6 +189,7 @@ s3://sigint-data-{account}/
 │   ├── ai-ml.json
 │   ├── deep-tech.json
 │   ├── crypto-finance.json
+│   ├── markets.json          # Ticker data
 │   ├── narrative.json
 │   ├── breaking.json
 │   ├── narratives.json
@@ -199,6 +221,13 @@ s3://sigint-data-{account}/
 1. Check CloudFront invalidation completed
 2. Verify S3 bucket policy allows CloudFront access
 3. Check browser console for CORS errors
+
+### Markets Ticker Not Showing
+
+1. Hard refresh browser (Ctrl+Shift+R / Cmd+Shift+R)
+2. Wait 2-5 min for CloudFront cache propagation
+3. Verify `markets.json` has properly formatted titles: `"Bitcoin: $90,000.00 (+5.5%)"`
+4. Check that at least one item matches the expected format (items with malformed titles are filtered)
 
 ## License
 

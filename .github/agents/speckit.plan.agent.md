@@ -1,6 +1,7 @@
+````chatagent
 ---
-description: Execute the implementation planning workflow using the plan template to generate design artifacts.
-handoffs: 
+description: Execute the implementation planning workflow with governance-aware CLI integration. Uses smactorio CLI for constitution access.
+handoffs:
   - label: Create Tasks
     agent: speckit.tasks
     prompt: Break the plan into tasks
@@ -18,15 +19,32 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## CRITICAL: Governance Data Source (FR-006)
+
+**Use CLI commands for governance principles — NEVER parse constitution.md directly.**
+
+```bash
+# Retrieve governance principles in structured JSON format
+uv run smactorio constitution list --format json
+
+# Or as readable Markdown for Constitution Check section
+uv run smactorio constitution list
+```
+
+The CLI is the only reliable source. The constitution.md file is auto-generated and may be stale.
+
 ## Outline
 
 1. **Setup**: Run `.specify/scripts/bash/setup-plan.sh --json` from repo root and parse JSON for FEATURE_SPEC, IMPL_PLAN, SPECS_DIR, BRANCH. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Load context**: Read FEATURE_SPEC and `.specify/memory/constitution.md`. Load IMPL_PLAN template (already copied).
+2. **Load context**:
+   - Read FEATURE_SPEC for requirements
+   - Load IMPL_PLAN template (already copied)
+   - **Run `uv run smactorio constitution list --format json`** to get governance principles
 
 3. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:
    - Fill Technical Context (mark unknowns as "NEEDS CLARIFICATION")
-   - Fill Constitution Check section from constitution
+   - Fill Constitution Check section from CLI output (step 2)
    - Evaluate gates (ERROR if violations unjustified)
    - Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
    - Phase 1: Generate data-model.md, contracts/, quickstart.md
@@ -34,6 +52,20 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Re-evaluate Constitution Check post-design
 
 4. **Stop and report**: Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generated artifacts.
+
+## Constitution Check Format
+
+When filling the Constitution Check section, use this format:
+
+```markdown
+## Constitution Check
+
+| Principle | Status | Evidence |
+|-----------|--------|----------|
+| **{control-id}**: {title} | ✅ PASS / ❌ FAIL | {evidence of compliance} |
+```
+
+Get the principles via: `uv run smactorio constitution list --format json`
 
 ## Phases
 
@@ -87,3 +119,6 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 - Use absolute paths
 - ERROR on gate failures or unresolved clarifications
+- **ALWAYS use `uv run smactorio constitution list` for governance data**
+
+````

@@ -231,29 +231,51 @@ class FeedFetcher:
                         items.append(item)
 
             elif isinstance(data, list) and len(data) > 0:
-                # Polymarket or generic list format
-                for item_data in data[:25]:
-                    if isinstance(item_data, dict):
-                        title = (
-                            item_data.get("question")
-                            or item_data.get("title")
-                            or item_data.get("name", "")
+                # Check if it's CoinGecko markets API format
+                first_item = data[0]
+                if isinstance(first_item, dict) and "current_price" in first_item:
+                    # CoinGecko /coins/markets format
+                    for coin_data in data[:20]:
+                        name = coin_data.get("name", "Unknown")
+                        symbol = coin_data.get("symbol", "???").upper()
+                        price = coin_data.get("current_price", 0)
+                        change = coin_data.get("price_change_percentage_24h", 0) or 0
+                        
+                        item = RawFeedItem(
+                            id=self._generate_id(source_url, symbol),
+                            title=f"{name}: ${price:,.2f} ({change:+.2f}%)",
+                            link=f"https://coingecko.com/en/coins/{coin_data.get('id', '')}",
+                            description=f"24h price for {name} ({symbol})",
+                            source="CoinGecko",
+                            source_url=source_url,
+                            published=datetime.now(UTC),
+                            raw_data={"symbol": symbol, "price": price, "change": change},
                         )
-                        link = item_data.get("url") or item_data.get("link", source_url)
-                        desc = item_data.get("description", "")[:500]
-
-                        if title:
-                            item = RawFeedItem(
-                                id=self._generate_id(link, title),
-                                title=title,
-                                link=link,
-                                description=desc,
-                                source=source_name,
-                                source_url=source_url,
-                                published=datetime.now(UTC),
-                                raw_data=item_data,
+                        items.append(item)
+                else:
+                    # Polymarket or generic list format
+                    for item_data in data[:25]:
+                        if isinstance(item_data, dict):
+                            title = (
+                                item_data.get("question")
+                                or item_data.get("title")
+                                or item_data.get("name", "")
                             )
-                            items.append(item)
+                            link = item_data.get("url") or item_data.get("link", source_url)
+                            desc = item_data.get("description", "")[:500]
+
+                            if title:
+                                item = RawFeedItem(
+                                    id=self._generate_id(link, title),
+                                    title=title,
+                                    link=link,
+                                    description=desc,
+                                    source=source_name,
+                                    source_url=source_url,
+                                    published=datetime.now(UTC),
+                                    raw_data=item_data,
+                                )
+                                items.append(item)
 
         except json.JSONDecodeError:
             logger.warning(f"Invalid JSON from {source_url}")

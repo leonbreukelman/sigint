@@ -7,7 +7,7 @@ const CONFIG = {
     // Will be replaced during deployment
     dataUrl: window.SIGINT_DATA_URL || '/data',
     refreshInterval: 60, // seconds
-    categories: ['geopolitical', 'ai-ml', 'deep-tech', 'crypto-finance', 'narrative', 'breaking']
+    categories: ['geopolitical', 'ai-ml', 'deep-tech', 'crypto-finance', 'narrative', 'breaking', 'markets']
 };
 
 // State
@@ -27,6 +27,7 @@ const elements = {
     lastUpdate: document.getElementById('lastUpdate'),
     breakingSection: document.getElementById('breakingSection'),
     breakingItems: document.getElementById('breakingItems'),
+    tickerTrack: document.getElementById('tickerTrack'),
     refreshCountdown: document.getElementById('refreshCountdown'),
     refreshBtn: document.getElementById('refreshBtn'),
     archiveBtn: document.getElementById('archiveBtn'),
@@ -191,6 +192,46 @@ function renderBreaking(items) {
     elements.breakingItems.innerHTML = items.map(renderBreakingItem).join('');
 }
 
+// Market Ticker Rendering
+function renderTickerItem(item) {
+    const title = item.title || '';
+    // Parse: "Bitcoin: $100,000.00 (+5.5%)"
+    const match = title.match(/^(\w+):\s*\$?([\d,]+\.?\d*)\s*\(([+-]?[\d.]+)%\)/i);
+    if (!match) return '';
+    
+    let name = match[1].toUpperCase();
+    const price = '$' + match[2];
+    const change = parseFloat(match[3]);
+    
+    // Map to ticker symbols
+    const symbols = {
+        'BITCOIN': 'BTC', 'ETHEREUM': 'ETH', 'SOLANA': 'SOL',
+        'DOGECOIN': 'DOGE', 'RIPPLE': 'XRP', 'CARDANO': 'ADA',
+        'POLKADOT': 'DOT', 'AVALANCHE': 'AVAX', 'CHAINLINK': 'LINK',
+        'POLYGON': 'MATIC'
+    };
+    const symbol = symbols[name] || name.slice(0, 4);
+    const changeClass = change > 0 ? 'up' : change < 0 ? 'down' : 'neutral';
+    const arrow = change > 0 ? '▲' : change < 0 ? '▼' : '';
+    
+    return `<div class="ticker-item">
+        <span class="ticker-symbol">${symbol}</span>
+        <span class="ticker-price">${price}</span>
+        <span class="ticker-change ${changeClass}">${arrow} ${change > 0 ? '+' : ''}${change.toFixed(2)}%</span>
+    </div>`;
+}
+
+function renderTicker(data) {
+    if (!elements.tickerTrack) return;
+    if (!data || !data.items || data.items.length === 0) {
+        elements.tickerTrack.innerHTML = '<div class="ticker-empty">Loading market data...</div>';
+        return;
+    }
+    // Render items twice for seamless infinite scroll
+    const items = data.items.map(renderTickerItem).filter(Boolean).join('');
+    elements.tickerTrack.innerHTML = items + items;
+}
+
 function updateStatus(status, text) {
     elements.statusDot.className = `status-dot ${status}`;
     elements.statusText.textContent = text;
@@ -213,7 +254,11 @@ async function updateDashboard() {
         if (dashboardData && dashboardData.categories) {
             // Use dashboard data
             for (const [category, data] of Object.entries(dashboardData.categories)) {
-                renderPanel(category, data);
+                if (category === 'markets') {
+                    renderTicker(data);
+                } else {
+                    renderPanel(category, data);
+                }
             }
             
             // Render breaking news
@@ -221,11 +266,17 @@ async function updateDashboard() {
                 renderBreaking(dashboardData.categories.breaking.items);
             }
             
+            // Markets not in dashboard.json, fetch separately
+            if (!dashboardData.categories.markets) {
+                const marketsData = await fetchCategoryData('markets');
+                if (marketsData) renderTicker(marketsData);
+            }
+            
             state.lastUpdate = dashboardData.last_updated || new Date().toISOString();
         } else {
             // Fetch each category individually
             for (const category of CONFIG.categories) {
-                if (category === 'breaking') continue; // Handle separately
+                if (category === 'breaking' || category === 'markets') continue;
                 
                 const data = await fetchCategoryData(category);
                 if (data) {
@@ -238,6 +289,10 @@ async function updateDashboard() {
             if (breakingData) {
                 renderBreaking(breakingData.items);
             }
+            
+            // Fetch markets
+            const marketsData = await fetchCategoryData('markets');
+            if (marketsData) renderTicker(marketsData);
             
             state.lastUpdate = new Date().toISOString();
         }

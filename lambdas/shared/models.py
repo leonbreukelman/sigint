@@ -21,6 +21,7 @@ class Category(str, Enum):
     AI_ML = "ai-ml"
     DEEP_TECH = "deep-tech"
     CRYPTO_FINANCE = "crypto-finance"
+    MARKETS = "markets"
     NARRATIVE = "narrative"
     BREAKING = "breaking"
 

@@ -1,0 +1,20 @@
+{
+  "feature_description": "Add a Market Reporter agent to the SIGINT dashboard that curates and displays financial market data as a compact ticker strip. Requirements: 1) New MARKETS category in the Category enum 2) Use CoinGecko API for crypto prices (BTC, ETH, SOL, DOGE, XRP) - no new API keys needed 3) The LLM agent picks the most interesting/notable price movements (big risers/fallers >5% moves) to highlight 4) Raw price display doesn't need LLM, but selecting which ones to feature prominently does 5) Ticker-style horizontal scrolling display in frontend, not card-based 6) 5-minute update frequency via EventBridge 7) Follow existing reporter pattern in lambdas/reporters/handler.py 8) Add market-focused prompt in llm_client.py for selecting notable movers",
+  "complexity": "complex",
+  "workflow_path": "init \u2192 analyst \u2192 spec_generator \u2192 constitution \u2192 architect \u2192 task_decomposer",
+  "current_phase": "error",
+  "agent_history": [
+    "analyst",
+    "spec_generator",
+    "constitution",
+    "architect",
+    "task_decomposer"
+  ],
+  "started_at": "2026-01-08T22:51:16.460184",
+  "completed_at": "2026-01-08T22:58:17.093140",
+  "violations_count": 8,
+  "entities_count": 0,
+  "tasks_count": 0,
+  "files_generated": 0,
+  "code_generation_confidence": null
+}

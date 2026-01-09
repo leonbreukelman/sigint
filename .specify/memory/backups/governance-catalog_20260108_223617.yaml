@@ -1,0 +1,38 @@
+catalog:
+  groups:
+  - controls:
+    - id: core-001
+      parts:
+      - {name: statement, prose: All features in sigint MUST be documented before
+          release.}
+      - {name: guidance, prose: Documentation ensures knowledge transfer and reduces
+          onboarding time for new team members.}
+      title: Documentation Required
+    id: core
+    title: Core Principles
+  - controls:
+    - id: dev-001
+      parts:
+      - {name: statement, prose: All code changes in sigint MUST be committed to version
+          control with meaningful commit messages.}
+      - {name: guidance, prose: 'Version control provides audit trail, enables collaboration,
+          and supports rollback capabilities.'}
+      title: Version Control
+    id: development
+    title: Development Workflow
+  - controls:
+    - id: arch-001
+      parts:
+      - {name: statement, prose: Infrastructure for sigint SHOULD be defined as code
+          and version controlled.}
+      - {name: guidance, prose: 'IaC ensures reproducible deployments, enables disaster
+          recovery, and documents infrastructure decisions.'}
+      title: Infrastructure as Code
+    id: architecture
+    title: Architecture
+  - controls: []
+    id: quality
+    title: Quality & Testing
+  metadata: {last-modified: '2026-01-09T04:36:17.401237+00:00', oscal-version: 1.1.3,
+    title: Smactorio Constitution, version: 1.3.0}
+  uuid: ca87d1c2-8dcc-4084-812e-a1d9412b9b59

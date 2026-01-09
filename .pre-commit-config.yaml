@@ -1,0 +1,9 @@
+repos:
+- repo: local
+  hooks:
+  - id: smactorio-governance-sync
+    name: Smactorio Governance Sync Check
+    entry: uv run smactorio governance sync --check
+    language: system
+    files: \.specify/memory/(governance-catalog\.yaml|constitution\.md)$
+    pass_filenames: false

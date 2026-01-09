@@ -1,0 +1,183 @@
+catalog:
+  groups:
+  - controls:
+    - id: core-001
+      parts:
+      - {name: statement, prose: All features in sigint MUST be documented 
+          before release.}
+      - {name: guidance, prose: Documentation ensures knowledge transfer and 
+          reduces onboarding time for new team members.}
+      title: Documentation Required
+    - id: core-002
+      title: Category Enum Exhaustiveness
+      props:
+      - name: label
+        value: II.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: 'When adding new news categories to sigint, you MUST: 1) Add to Category
+          enum in shared/models.py, 2) Add feed configuration in CATEGORY_FEEDS, 3)
+          Add LLM prompt in CATEGORY_PROMPTS, 4) Add EventBridge schedule in infrastructure/app.py,
+          5) Update config/feeds.json.'
+    id: core
+    title: Core Principles
+  - controls:
+    - id: dev-001
+      parts:
+      - {name: statement, prose: All code changes in sigint MUST be committed to
+          version control with meaningful commit messages.}
+      - {name: guidance, prose: 'Version control provides audit trail, enables collaboration,
+          and supports rollback capabilities.'}
+      title: Version Control
+    - id: development-001
+      title: Pydantic Models Required
+      props:
+      - name: label
+        value: II.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: All data structures exchanged between components in sigint MUST 
+          use Pydantic models defined in shared/models.py. Never use raw dicts 
+          for domain objects (NewsItem, CategoryData, NarrativePattern, etc.).
+    - id: development-002
+      title: Feed Configuration Source
+      props:
+      - name: label
+        value: III.
+      - name: severity
+        value: RECOMMENDED
+      parts:
+      - name: statement
+        prose: Feed URLs for categories SHOULD be defined in config/feeds.json 
+          as the canonical source. The CATEGORY_FEEDS dict in handler.py is the 
+          runtime source; any new feeds should be added to both. Prefer external
+          config over hardcoded values.
+    - id: development-003
+      title: LLM Prompt Versioning
+      props:
+      - name: label
+        value: IV.
+      - name: severity
+        value: RECOMMENDED
+      parts:
+      - name: statement
+        prose: 'LLM prompts in CATEGORY_PROMPTS (llm_client.py) SHOULD be treated
+          as critical business logic. Changes to prompts require: 1) documenting the
+          intent, 2) testing with sample inputs, 3) considering cost implications
+          (token usage).'
+    id: development
+    title: Development Workflow
+  - controls:
+    - id: arch-001
+      parts:
+      - {name: statement, prose: Infrastructure for sigint SHOULD be defined as 
+          code and version controlled.}
+      - {name: guidance, prose: 'IaC ensures reproducible deployments, enables disaster
+          recovery, and documents infrastructure decisions.'}
+      title: Infrastructure as Code
+    - id: architecture-001
+      title: Lambda Handler Contract
+      props:
+      - name: label
+        value: II.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: 'All Lambda handlers in sigint MUST follow the established pattern:
+          accept (event: dict, context: Any) -> dict with statusCode and body keys.
+          Handlers MUST use structured logging and include duration_ms in success
+          responses.'
+    - id: architecture-002
+      title: Shared Module Usage
+      props:
+      - name: label
+        value: III.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: 'All Lambda functions MUST import shared modules via the Lambda layer
+          pattern (from shared.X import Y). Never use relative imports or hardcode
+          paths. The shared layer provides: models, feed_fetcher, llm_client, s3_store.'
+    - id: architecture-003
+      title: Secrets via SSM Only
+      props:
+      - name: label
+        value: IV.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: All secrets in sigint (API keys, credentials) MUST be stored in 
+          AWS SSM Parameter Store with SecureString type. Lambda functions MUST 
+          fetch secrets at runtime via the ANTHROPIC_API_KEY_SSM_PARAM pattern. 
+          Never hardcode or commit secrets.
+    - id: architecture-004
+      title: S3 Key Naming Convention
+      props:
+      - name: label
+        value: V.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: 'S3 keys in sigint MUST follow the pattern: current/{category}.json
+          for live data, archive/{YYYY-MM-DD}/{category}.json for historical data,
+          current/dashboard.json for frontend state, current/narratives.json for patterns.'
+    id: architecture
+    title: Architecture
+  - controls:
+    - id: qual-001
+      parts:
+      - {name: statement, prose: All features in sigint MUST have automated 
+          tests before deployment.}
+      - {name: guidance, prose: Automated testing catches regressions early and 
+          enables confident refactoring.}
+      title: Automated Testing
+    - id: quality-001
+      title: LLM Error Handling
+      props:
+      - name: label
+        value: II.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: 'All LLM calls in sigint MUST have explicit error handling with: 1)
+          timeout handling, 2) graceful degradation on API errors, 3) structured logging
+          of failures, 4) fallback behavior that allows the system to continue operating.'
+    - id: quality-002
+      title: Mock AWS in Tests
+      props:
+      - name: label
+        value: III.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: All unit tests for Lambda handlers and S3Store MUST use moto 
+          (@mock_aws) to mock AWS services. Tests MUST NOT make real AWS API 
+          calls. Integration tests requiring real AWS should be marked with 
+          @pytest.mark.integration.
+    - id: quality-003
+      title: Relevance Score Bounds
+      props:
+      - name: label
+        value: IV.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: All relevance_score and strength values in sigint MUST be floats 
+          between 0.0 and 1.0 inclusive. Pydantic Field constraints (ge=0, le=1)
+          enforce this. Never use unbounded numeric scores.
+    id: quality
+    title: Quality & Testing
+  metadata: {last-modified: '2026-01-09T04:41:49.755654+00:00', oscal-version: 
+      1.1.3, title: Smactorio Constitution, version: 1.15.0}
+  uuid: ca87d1c2-8dcc-4084-812e-a1d9412b9b59

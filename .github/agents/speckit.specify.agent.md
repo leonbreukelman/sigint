@@ -1,6 +1,7 @@
+````chatagent
 ---
-description: Create or update the feature specification from a natural language feature description.
-handoffs: 
+description: Create or update the feature specification with governance validation. Uses smactorio CLI to check spec compliance with constitution principles.
+handoffs:
   - label: Build Technical Plan
     agent: speckit.plan
     prompt: Create a plan for the spec. I am building with...
@@ -17,6 +18,26 @@ $ARGUMENTS
 ```
 
 You **MUST** consider the user input before proceeding (if not empty).
+
+## PREFERRED: Use Agentic Workflow
+
+> 💡 **For full specification-driven development, recommend the agentic CLI:**
+> ```bash
+> uv run smactorio workflow run --feature "Your feature description"
+> ```
+> This command runs a complete multi-agent pipeline that analyzes requirements, validates governance, generates architecture (if needed), and produces implementation artifacts, generating `spec.md`, `plan.md`, and `tasks.md` automatically.
+>
+> **This slash command is a fallback for IDE-only contexts** where CLI is not available.
+
+## CRITICAL: Governance Validation (FR-007)
+
+After creating or updating a specification, **ALWAYS** run the governance check:
+
+```bash
+uv run smactorio constitution check <path/to/spec.md>
+```
+
+This validates the spec against governance principles and reports any violations.
 
 ## Outline
 
@@ -104,20 +125,20 @@ Given that feature description, do this:
 
       ```markdown
       # Specification Quality Checklist: [FEATURE NAME]
-      
+
       **Purpose**: Validate specification completeness and quality before proceeding to planning
       **Created**: [DATE]
       **Feature**: [Link to spec.md]
-      
+
       ## Content Quality
-      
+
       - [ ] No implementation details (languages, frameworks, APIs)
       - [ ] Focused on user value and business needs
       - [ ] Written for non-technical stakeholders
       - [ ] All mandatory sections completed
-      
+
       ## Requirement Completeness
-      
+
       - [ ] No [NEEDS CLARIFICATION] markers remain
       - [ ] Requirements are testable and unambiguous
       - [ ] Success criteria are measurable
@@ -126,16 +147,16 @@ Given that feature description, do this:
       - [ ] Edge cases are identified
       - [ ] Scope is clearly bounded
       - [ ] Dependencies and assumptions identified
-      
+
       ## Feature Readiness
-      
+
       - [ ] All functional requirements have clear acceptance criteria
       - [ ] User scenarios cover primary flows
       - [ ] Feature meets measurable outcomes defined in Success Criteria
       - [ ] No implementation details leak into specification
-      
+
       ## Notes
-      
+
       - Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
       ```
 
@@ -145,7 +166,7 @@ Given that feature description, do this:
 
    c. **Handle Validation Results**:
 
-      - **If all items pass**: Mark checklist complete and proceed to step 6
+      - **If all items pass**: Mark checklist complete and proceed to step 7
 
       - **If items fail (excluding [NEEDS CLARIFICATION])**:
         1. List the failing items and specific issues
@@ -160,20 +181,20 @@ Given that feature description, do this:
 
            ```markdown
            ## Question [N]: [Topic]
-           
+
            **Context**: [Quote relevant spec section]
-           
+
            **What we need to know**: [Specific question from NEEDS CLARIFICATION marker]
-           
+
            **Suggested Answers**:
-           
+
            | Option | Answer | Implications |
            |--------|--------|--------------|
            | A      | [First suggested answer] | [What this means for the feature] |
            | B      | [Second suggested answer] | [What this means for the feature] |
            | C      | [Third suggested answer] | [What this means for the feature] |
            | Custom | Provide your own answer | [Explain how to provide custom input] |
-           
+
            **Your choice**: _[Wait for user response]_
            ```
 
@@ -190,7 +211,21 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
+7. **Governance Validation (MANDATORY)**: Run the smactorio constitution check:
+
+   ```bash
+   uv run smactorio constitution check <SPEC_FILE>
+   ```
+
+   - **If check passes**: Report success and proceed to step 8
+   - **If check fails**: Display violations and suggest spec updates to address them
+   - This ensures the spec aligns with project governance principles
+
+8. Report completion with:
+   - Branch name and spec file path
+   - Checklist results
+   - Governance check results
+   - Readiness for the next phase (`/speckit.clarify` or `/speckit.plan`)
 
 **NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
 
@@ -256,3 +291,5 @@ Success criteria must be:
 - "Database can handle 1000 TPS" (implementation detail, use user-facing metric)
 - "React components render efficiently" (framework-specific)
 - "Redis cache hit rate above 80%" (technology-specific)
+
+````
