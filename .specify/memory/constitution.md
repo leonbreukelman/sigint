@@ -45,6 +45,9 @@ Feed URLs for categories SHOULD be defined in config/feeds.json as the canonical
 ### IV. LLM Prompt Versioning
 LLM prompts in CATEGORY_PROMPTS (llm_client.py) SHOULD be treated as critical business logic. Changes to prompts require: 1) documenting the intent, 2) testing with sample inputs, 3) considering cost implications (token usage).
 
+### V. Category-Specific Handler Logic
+Categories that require special processing (e.g., markets skips LLM filtering, breaking skips deduplication) MUST have this logic documented in handler.py comments and in the category enum docstring. When adding new categories, explicitly decide if standard LLM analysis applies.
+
 ## Architecture
 
 ### arch-001. Infrastructure as Code
@@ -64,6 +67,9 @@ All secrets in sigint (API keys, credentials) MUST be stored in AWS SSM Paramete
 ### V. S3 Key Naming Convention (NON-NEGOTIABLE)
 S3 keys in sigint MUST follow the pattern: current/{category}.json for live data, archive/{YYYY-MM-DD}/{category}.json for historical data, current/dashboard.json for frontend state, current/narratives.json for patterns.
 
+### VI. Frontend Data Contract
+Lambda output formats consumed by the frontend MUST have documented contracts. For markets ticker: title MUST match pattern matching coin name, price, and percentage change. Changes to Lambda output format require corresponding frontend parser updates.
+
 ## Quality & Testing
 
 ### qual-001. Automated Testing
@@ -80,6 +86,12 @@ All unit tests for Lambda handlers and S3Store MUST use moto (@mock_aws) to mock
 ### IV. Relevance Score Bounds (NON-NEGOTIABLE)
 All relevance_score and strength values in sigint MUST be floats between 0.0 and 1.0 inclusive. Pydantic Field constraints (ge=0, le=1) enforce this. Never use unbounded numeric scores.
 
+### V. Post-Deployment Smoke Test (NON-NEGOTIABLE)
+After any CDK deployment, you MUST invoke at least one Lambda function per modified category and verify successful execution before declaring deployment complete. Check CloudWatch logs for errors and validate S3 output data format.
+
+### VI. Regression Testing Before Deployment (NON-NEGOTIABLE)
+When modifying Lambda handlers or shared modules, you MUST verify all existing categories still function correctly. Run pytest and manually test each affected Lambda category before deployment. Changes to handler.py require testing ALL categories.
+
 ---
 
-**Version**: 1.15.0 | **Last Modified**: 2026-01-09
+**Version**: 1.19.0 | **Last Modified**: 2026-01-09

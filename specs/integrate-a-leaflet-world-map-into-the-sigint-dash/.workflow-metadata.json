@@ -1,0 +1,20 @@
+{
+  "feature_description": "Integrate a Leaflet world map into the SIGINT dashboard frontend. The map should: 1) Use CartoDB Dark tiles to match the terminal aesthetic, 2) Auto-extract locations from news titles/summaries using a location database of 100+ countries/cities, 3) Display category-colored pulsing markers (Red for Geopolitical, Green for AI/ML, Blue for Deep Tech, Orange for Crypto/Finance), 4) Show popups on click with title, category, location, and read more link, 5) Be collapsible via toggle button, 6) Update markers when category data loads. The map.js and map.css files already exist in specs/ folder and need to be moved to frontend/. The index.html needs Leaflet CDN links and map section HTML. The app.js needs to initialize SigintMap and call updateMarkers() when data loads.",
+  "complexity": "complex",
+  "workflow_path": "init \u2192 analyst \u2192 spec_generator \u2192 constitution \u2192 architect \u2192 task_decomposer",
+  "current_phase": "error",
+  "agent_history": [
+    "analyst",
+    "spec_generator",
+    "constitution",
+    "architect",
+    "task_decomposer"
+  ],
+  "started_at": "2026-01-09T09:50:56.365664",
+  "completed_at": "2026-01-09T10:01:45.494262",
+  "violations_count": 2,
+  "entities_count": 0,
+  "tasks_count": 0,
+  "files_generated": 0,
+  "code_generation_confidence": null
+}

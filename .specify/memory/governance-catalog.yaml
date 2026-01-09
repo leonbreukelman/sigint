@@ -69,6 +69,20 @@ catalog:
           as critical business logic. Changes to prompts require: 1) documenting the
           intent, 2) testing with sample inputs, 3) considering cost implications
           (token usage).'
+    - id: development-004
+      title: Category-Specific Handler Logic
+      props:
+      - name: label
+        value: V.
+      - name: severity
+        value: RECOMMENDED
+      parts:
+      - name: statement
+        prose: Categories that require special processing (e.g., markets skips 
+          LLM filtering, breaking skips deduplication) MUST have this logic 
+          documented in handler.py comments and in the category enum docstring. 
+          When adding new categories, explicitly decide if standard LLM analysis
+          applies.
     id: development
     title: Development Workflow
   - controls:
@@ -129,6 +143,19 @@ catalog:
         prose: 'S3 keys in sigint MUST follow the pattern: current/{category}.json
           for live data, archive/{YYYY-MM-DD}/{category}.json for historical data,
           current/dashboard.json for frontend state, current/narratives.json for patterns.'
+    - id: architecture-005
+      title: Frontend Data Contract
+      props:
+      - name: label
+        value: VI.
+      - name: severity
+        value: RECOMMENDED
+      parts:
+      - name: statement
+        prose: 'Lambda output formats consumed by the frontend MUST have documented
+          contracts. For markets ticker: title MUST match pattern matching coin name,
+          price, and percentage change. Changes to Lambda output format require corresponding
+          frontend parser updates.'
     id: architecture
     title: Architecture
   - controls:
@@ -176,8 +203,34 @@ catalog:
         prose: All relevance_score and strength values in sigint MUST be floats 
           between 0.0 and 1.0 inclusive. Pydantic Field constraints (ge=0, le=1)
           enforce this. Never use unbounded numeric scores.
+    - id: quality-004
+      title: Post-Deployment Smoke Test
+      props:
+      - name: label
+        value: V.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: After any CDK deployment, you MUST invoke at least one Lambda 
+          function per modified category and verify successful execution before 
+          declaring deployment complete. Check CloudWatch logs for errors and 
+          validate S3 output data format.
+    - id: quality-005
+      title: Regression Testing Before Deployment
+      props:
+      - name: label
+        value: VI.
+      - name: severity
+        value: NON-NEGOTIABLE
+      parts:
+      - name: statement
+        prose: When modifying Lambda handlers or shared modules, you MUST verify
+          all existing categories still function correctly. Run pytest and 
+          manually test each affected Lambda category before deployment. Changes
+          to handler.py require testing ALL categories.
     id: quality
     title: Quality & Testing
-  metadata: {last-modified: '2026-01-09T04:41:49.755654+00:00', oscal-version: 
-      1.1.3, title: Smactorio Constitution, version: 1.15.0}
+  metadata: {last-modified: '2026-01-09T18:15:39.887388+00:00', oscal-version: 
+      1.1.3, title: Smactorio Constitution, version: 1.19.0}
   uuid: ca87d1c2-8dcc-4084-812e-a1d9412b9b59
