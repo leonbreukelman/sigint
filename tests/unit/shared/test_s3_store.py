@@ -271,3 +271,94 @@ class TestS3StoreDashboard:
 
         assert "categories" in data
         assert "ai-ml" in data["categories"]
+
+
+class TestS3StoreArchiveEnhancements:
+    """Tests for archive index, cleanup, and export methods."""
+
+    def test_update_archive_index(self, s3_store_with_bucket, sample_category_data):
+        store, client = s3_store_with_bucket
+
+        # Create some archive data first
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
+        store.archive_items(sample_category_data.category, sample_category_data.items)
+
+        # Update index
+        result = store.update_archive_index()
+
+        assert "available_dates" in result
+        assert "total_items_by_category" in result
+        assert "last_updated" in result
+        assert "retention_days" in result
+        assert result["retention_days"] == 30
+
+    def test_get_archive_index(self, s3_store_with_bucket, sample_category_data):
+        store, _ = s3_store_with_bucket
+
+        # Create archive and index
+        store.archive_items(sample_category_data.category, sample_category_data.items)
+        store.update_archive_index()
+
+        # Get the index
+        result = store.get_archive_index()
+
+        assert result is not None
+        assert "available_dates" in result
+        assert "total_items_by_category" in result
+
+    def test_get_archive_index_not_found(self, s3_store_with_bucket):
+        store, _ = s3_store_with_bucket
+
+        result = store.get_archive_index()
+
+        assert result is None
+
+    def test_cleanup_old_archives_no_old_data(self, s3_store_with_bucket, sample_category_data):
+        store, _ = s3_store_with_bucket
+
+        # Create archive for today (not old)
+        store.archive_items(sample_category_data.category, sample_category_data.items)
+
+        # Cleanup with 30 day retention - should not delete today's data
+        result = store.cleanup_old_archives(retention_days=30)
+
+        assert "deleted_dates" in result
+        assert len(result["deleted_dates"]) == 0
+        assert result["deleted_files"] == 0
+
+    def test_export_archive_json(self, s3_store_with_bucket, sample_category_data):
+        store, _ = s3_store_with_bucket
+        from shared.models import Category
+
+        # Create archive data
+        store.archive_items(sample_category_data.category, sample_category_data.items)
+
+        # Export
+        result = store.export_archive_json(Category.AI_ML, days=1)
+
+        assert isinstance(result, str)
+        data = json.loads(result)
+        assert data["category"] == "ai-ml"
+        assert "items" in data
+        assert "item_count" in data
+        assert "exported_at" in data
+
+    def test_export_archive_csv(self, s3_store_with_bucket, sample_category_data):
+        store, _ = s3_store_with_bucket
+        from shared.models import Category
+
+        # Create archive data
+        store.archive_items(sample_category_data.category, sample_category_data.items)
+
+        # Export
+        result = store.export_archive_csv(Category.AI_ML, days=1)
+
+        assert isinstance(result, str)
+        lines = result.strip().split("\n")
+        assert len(lines) >= 2  # Header + at least one data row
+        
+        # Check header
+        header = lines[0]
+        assert "id" in header
+        assert "title" in header
+        assert "source" in header

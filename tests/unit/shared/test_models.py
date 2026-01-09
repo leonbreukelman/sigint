@@ -42,7 +42,8 @@ class TestCategoryEnum:
     def test_all_categories_count(self):
         from shared.models import Category
 
-        assert len(Category) == 6
+        # 7 categories: geopolitical, ai-ml, deep-tech, crypto-finance, markets, narrative, breaking
+        assert len(Category) == 7
 
 
 class TestNewsItem:

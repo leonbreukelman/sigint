@@ -118,7 +118,8 @@ class TestFeedFetcher:
         )
 
         assert len(items) == 2
-        assert items[0].title == "Will AI pass the Turing test?"
+        # Polymarket titles are prefixed with 📊 emoji
+        assert items[0].title == "📊 Will AI pass the Turing test?"
 
     def test_parse_json_api_invalid_json(self):
         from shared.feed_fetcher import FeedFetcher
@@ -249,3 +250,174 @@ class TestFeedFetcherRSSParsing:
         # HTML should be stripped
         assert "<p>" not in items[0].description
         assert "<strong>" not in items[0].description
+
+
+class TestFeedFetcherFiltering:
+    """Tests for pre-LLM filtering methods."""
+
+    def test_jaccard_similarity_identical_strings(self):
+        from shared.feed_fetcher import FeedFetcher
+
+        fetcher = FeedFetcher()
+        assert fetcher._jaccard_similarity("hello world", "hello world") == 1.0
+
+    def test_jaccard_similarity_completely_different(self):
+        from shared.feed_fetcher import FeedFetcher
+
+        fetcher = FeedFetcher()
+        assert fetcher._jaccard_similarity("hello world", "foo bar") == 0.0
+
+    def test_jaccard_similarity_partial_overlap(self):
+        from shared.feed_fetcher import FeedFetcher
+
+        fetcher = FeedFetcher()
+        # "hello world" and "hello there" share "hello"
+        similarity = fetcher._jaccard_similarity("hello world", "hello there")
+        assert 0.0 < similarity < 1.0
+        # 1 word in common ("hello"), union is 3 words
+        assert similarity == 1 / 3
+
+    def test_jaccard_similarity_case_insensitive(self):
+        from shared.feed_fetcher import FeedFetcher
+
+        fetcher = FeedFetcher()
+        assert fetcher._jaccard_similarity("Hello World", "hello world") == 1.0
+
+    def test_jaccard_similarity_empty_string(self):
+        from shared.feed_fetcher import FeedFetcher
+
+        fetcher = FeedFetcher()
+        assert fetcher._jaccard_similarity("", "hello") == 0.0
+        assert fetcher._jaccard_similarity("hello", "") == 0.0
+
+    def test_filter_similar_titles_removes_duplicates(self, sample_raw_feed_items):
+        from shared.feed_fetcher import FeedFetcher, RawFeedItem
+        from datetime import datetime, UTC
+
+        fetcher = FeedFetcher()
+
+        # Create items with similar titles
+        items = [
+            RawFeedItem(
+                id="1",
+                title="Breaking: Major AI breakthrough announced today",
+                link="https://a.com",
+                description="",
+                source="Source A",
+                source_url="https://a.com",
+                published=datetime.now(UTC),
+                raw_data={},
+            ),
+            RawFeedItem(
+                id="2",
+                title="Breaking: Major AI breakthrough announced",  # Very similar
+                link="https://b.com",
+                description="",
+                source="Source B",
+                source_url="https://b.com",
+                published=datetime.now(UTC),
+                raw_data={},
+            ),
+            RawFeedItem(
+                id="3",
+                title="Completely different topic about finance",  # Different
+                link="https://c.com",
+                description="",
+                source="Source C",
+                source_url="https://c.com",
+                published=datetime.now(UTC),
+                raw_data={},
+            ),
+        ]
+
+        filtered = fetcher.filter_similar_titles(items, similarity_threshold=0.7)
+
+        # Should keep first and third, remove second as similar to first
+        assert len(filtered) == 2
+        assert filtered[0].id == "1"
+        assert filtered[1].id == "3"
+
+    def test_filter_similar_titles_empty_list(self):
+        from shared.feed_fetcher import FeedFetcher
+
+        fetcher = FeedFetcher()
+        assert fetcher.filter_similar_titles([]) == []
+
+    def test_limit_per_source_basic(self):
+        from shared.feed_fetcher import FeedFetcher, RawFeedItem
+        from datetime import datetime, UTC
+
+        fetcher = FeedFetcher()
+
+        # Create 10 items from same source
+        items = [
+            RawFeedItem(
+                id=str(i),
+                title=f"Article {i}",
+                link=f"https://example.com/{i}",
+                description="",
+                source="Same Source",
+                source_url="https://example.com",
+                published=datetime.now(UTC),
+                raw_data={},
+            )
+            for i in range(10)
+        ]
+
+        filtered = fetcher.limit_per_source(items, max_per_source=3)
+
+        assert len(filtered) == 3
+        # Should keep first 3
+        assert [f.id for f in filtered] == ["0", "1", "2"]
+
+    def test_limit_per_source_multiple_sources(self):
+        from shared.feed_fetcher import FeedFetcher, RawFeedItem
+        from datetime import datetime, UTC
+
+        fetcher = FeedFetcher()
+
+        items = []
+        for source in ["Source A", "Source B", "Source C"]:
+            for i in range(4):
+                items.append(
+                    RawFeedItem(
+                        id=f"{source}-{i}",
+                        title=f"Article {i} from {source}",
+                        link=f"https://example.com/{source}/{i}",
+                        description="",
+                        source=source,
+                        source_url="https://example.com",
+                        published=datetime.now(UTC),
+                        raw_data={},
+                    )
+                )
+
+        filtered = fetcher.limit_per_source(items, max_per_source=2)
+
+        # 3 sources × 2 items each = 6
+        assert len(filtered) == 6
+
+        # Check each source has at most 2
+        source_counts = {}
+        for item in filtered:
+            source_counts[item.source] = source_counts.get(item.source, 0) + 1
+
+        assert all(count <= 2 for count in source_counts.values())
+
+    def test_apply_pre_llm_filters_combined(self, sample_raw_feed_items):
+        from shared.feed_fetcher import FeedFetcher
+
+        fetcher = FeedFetcher()
+
+        # Use sample items (should all be recent enough)
+        filtered = fetcher.apply_pre_llm_filters(
+            sample_raw_feed_items,
+            max_age_hours=24,
+            similarity_threshold=0.7,
+            max_per_source=5,
+        )
+
+        # Should return a list (exact count depends on sample data)
+        assert isinstance(filtered, list)
+        # Should be <= original count
+        assert len(filtered) <= len(sample_raw_feed_items)

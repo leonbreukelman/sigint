@@ -26,6 +26,17 @@ class Category(str, Enum):
     BREAKING = "breaking"
 
 
+class PredictionMarket(BaseModel):
+    """A prediction market related to a news item"""
+
+    question: str = Field(..., description="The prediction market question")
+    probability: float | None = Field(default=None, ge=0, le=1, description="Current probability (0-1)")
+    source: str = Field(..., description="Market source (Polymarket, Kalshi, Metaculus)")
+    volume: str | None = Field(default=None, description="Trading volume if available")
+    url: str | None = Field(default=None, description="Link to the market")
+    end_date: str | None = Field(default=None, description="Market resolution date")
+
+
 class NewsItem(BaseModel):
     """A single news item processed by an agent"""
 
@@ -43,6 +54,9 @@ class NewsItem(BaseModel):
     entities: list[str] = Field(default_factory=list, description="Key entities mentioned")
     tags: list[str] = Field(default_factory=list, description="Topic tags")
     related_items: list[str] = Field(default_factory=list, description="IDs of related items")
+    prediction_market: PredictionMarket | None = Field(
+        default=None, description="Related prediction market if found"
+    )
 
 
 class CategoryData(BaseModel):
