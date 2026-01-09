@@ -1,0 +1,20 @@
+{
+  "feature_description": "Add age-based article filtering with a frontend time range slider. Default 24 hours, max 30 days. Filter articles BEFORE LLM calls in feed_fetcher.py to reduce costs. Add get_archive_range() method to s3_store.py for fetching multiple days of archive. Frontend slider in index.html with styling in style.css, controlled by app.js. Slider pulls from archive and merges with current data. Add default_age_hours setting to config/feeds.json global_settings.",
+  "complexity": "complex",
+  "workflow_path": "init \u2192 analyst \u2192 spec_generator \u2192 constitution \u2192 architect \u2192 task_decomposer",
+  "current_phase": "error",
+  "agent_history": [
+    "analyst",
+    "spec_generator",
+    "constitution",
+    "architect",
+    "task_decomposer"
+  ],
+  "started_at": "2026-01-09T12:30:50.398240",
+  "completed_at": "2026-01-09T12:40:45.262826",
+  "violations_count": 4,
+  "entities_count": 0,
+  "tasks_count": 0,
+  "files_generated": 0,
+  "code_generation_confidence": null
+}
