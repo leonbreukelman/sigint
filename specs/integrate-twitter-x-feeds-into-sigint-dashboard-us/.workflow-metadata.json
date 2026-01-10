@@ -1,0 +1,18 @@
+{
+  "feature_description": "Integrate Twitter/X feeds into SIGINT dashboard using hybrid approach: list-based baseline monitoring (curated AI/ML accounts like @AnthropicAI, @OpenAI, @ylecun) with event-driven search on narrative spikes. Implement deep narrative correlation engine that matches tweet velocity and hashtag spikes with news headlines to detect leading indicators and amplification patterns. Pilot with AI/ML category. Must respect free tier API limits (1500 reads/month) with aggressive S3 caching. Create twitter_client.py, correlation_engine.py, twitter Lambda handler. Add TweetItem and CorrelatedNarrative models. Integrate with existing narrative detection system.",
+  "complexity": "complex",
+  "workflow_path": "init \u2192 analyst \u2192 spec_generator \u2192 constitution",
+  "current_phase": "complexity_analysis",
+  "agent_history": [
+    "analyst",
+    "spec_generator",
+    "constitution"
+  ],
+  "started_at": "2026-01-09T17:03:36.754139",
+  "completed_at": "2026-01-09T17:10:49.241618",
+  "violations_count": 5,
+  "entities_count": 0,
+  "tasks_count": 0,
+  "files_generated": 0,
+  "code_generation_confidence": null
+}

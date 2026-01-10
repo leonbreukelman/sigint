@@ -286,6 +286,70 @@ function handler(event) {
             resources=[f"{data_bucket.bucket_arn}/archive/*"]
         ))
         
+        # Twitter Lambda (fetches from X API, respects free tier limits)
+        twitter_fn = lambda_.Function(
+            self, "TwitterFunction",
+            function_name="sigint-twitter",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="handler.handler",
+            code=lambda_.Code.from_asset("../lambdas/twitter"),
+            layers=[shared_layer],
+            environment={
+                "DATA_BUCKET": data_bucket.bucket_name,
+                "X_BEARER_TOKEN_SSM_PARAM": "/sigint/x-bearer-token",
+                "POWERTOOLS_SERVICE_NAME": "sigint-twitter",
+                "LOG_LEVEL": "INFO"
+            },
+            timeout=Duration.minutes(3),
+            memory_size=512,
+            log_retention=logs.RetentionDays.ONE_WEEK,
+        )
+        data_bucket.grant_read_write(twitter_fn)
+        # Grant SSM read permission for X bearer token
+        twitter_fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["ssm:GetParameter"],
+            resources=[f"arn:aws:ssm:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}:parameter/sigint/x-bearer-token"]
+        ))
+
+        # RSS Ingest Lambda (Stage 1: ingests RSS feeds into raw/ layer)
+        rss_ingest_fn = lambda_.Function(
+            self, "RssIngestFunction",
+            function_name="sigint-rss-ingest",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="handler.handler",
+            code=lambda_.Code.from_asset("../lambdas/rss_ingest"),
+            layers=[shared_layer],
+            environment={
+                "DATA_BUCKET": data_bucket.bucket_name,
+                "POWERTOOLS_SERVICE_NAME": "sigint-rss-ingest",
+                "LOG_LEVEL": "INFO"
+            },
+            timeout=Duration.minutes(5),
+            memory_size=512,
+            log_retention=logs.RetentionDays.ONE_WEEK,
+        )
+        data_bucket.grant_read_write(rss_ingest_fn)
+
+        # Unified Analyzer Lambda (Stage 2: combines sources, runs LLM analysis)
+        analyzer_fn = lambda_.Function(
+            self, "AnalyzerFunction",
+            function_name="sigint-analyzer",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="handler.handler",
+            code=lambda_.Code.from_asset("../lambdas/analyzer"),
+            layers=[shared_layer],
+            environment=lambda_env,
+            timeout=Duration.minutes(5),
+            memory_size=512,
+            log_retention=logs.RetentionDays.ONE_WEEK,
+        )
+        data_bucket.grant_read_write(analyzer_fn)
+        # Grant SSM read permission for API key
+        analyzer_fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["ssm:GetParameter"],
+            resources=[f"arn:aws:ssm:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}:parameter/sigint/anthropic-api-key"]
+        ))
+        
         # =================================================================
         # EventBridge Schedules
         # =================================================================
@@ -369,6 +433,113 @@ function handler(event) {
             targets=[targets.LambdaFunction(
                 reporter_fn,
                 event=events.RuleTargetInput.from_object({"category": "markets"})
+            )]
+        )
+        
+        # Twitter AI/ML - every 2 hours (respects free tier API limits)
+        events.Rule(
+            self, "TwitterAiMlSchedule",
+            rule_name="sigint-twitter-ai-ml",
+            schedule=events.Schedule.rate(Duration.hours(2)),
+            targets=[targets.LambdaFunction(
+                twitter_fn,
+                event=events.RuleTargetInput.from_object({
+                    "mode": "list",
+                    "category": "ai-ml"
+                })
+            )]
+        )
+
+        # =================================================================
+        # Unified Analysis Pipeline Schedules (Stage 1 → Stage 2)
+        # RSS Ingest runs 2 min before Analyzer to ensure fresh data
+        # =================================================================
+
+        # RSS Ingest AI/ML - every 10 min (offset by 2 min)
+        events.Rule(
+            self, "RssIngestAiMlSchedule",
+            rule_name="sigint-rss-ingest-ai-ml",
+            schedule=events.Schedule.cron(minute="8,18,28,38,48,58"),  # 2 min before analyzer
+            targets=[targets.LambdaFunction(
+                rss_ingest_fn,
+                event=events.RuleTargetInput.from_object({"category": "ai-ml"})
+            )]
+        )
+
+        # Unified Analyzer AI/ML - every 10 min
+        events.Rule(
+            self, "AnalyzerAiMlSchedule",
+            rule_name="sigint-analyzer-ai-ml",
+            schedule=events.Schedule.rate(Duration.minutes(10)),
+            targets=[targets.LambdaFunction(
+                analyzer_fn,
+                event=events.RuleTargetInput.from_object({"category": "ai-ml"})
+            )]
+        )
+
+        # RSS Ingest Geopolitical - every 15 min (offset)
+        events.Rule(
+            self, "RssIngestGeoSchedule",
+            rule_name="sigint-rss-ingest-geopolitical",
+            schedule=events.Schedule.cron(minute="3,18,33,48"),  # 2 min before analyzer
+            targets=[targets.LambdaFunction(
+                rss_ingest_fn,
+                event=events.RuleTargetInput.from_object({"category": "geopolitical"})
+            )]
+        )
+
+        # Unified Analyzer Geopolitical - every 15 min
+        events.Rule(
+            self, "AnalyzerGeoSchedule",
+            rule_name="sigint-analyzer-geopolitical",
+            schedule=events.Schedule.cron(minute="5,20,35,50"),
+            targets=[targets.LambdaFunction(
+                analyzer_fn,
+                event=events.RuleTargetInput.from_object({"category": "geopolitical"})
+            )]
+        )
+
+        # RSS Ingest Deep Tech - every 15 min (offset)
+        events.Rule(
+            self, "RssIngestDeepTechSchedule",
+            rule_name="sigint-rss-ingest-deep-tech",
+            schedule=events.Schedule.cron(minute="8,23,38,53"),
+            targets=[targets.LambdaFunction(
+                rss_ingest_fn,
+                event=events.RuleTargetInput.from_object({"category": "deep-tech"})
+            )]
+        )
+
+        # Unified Analyzer Deep Tech - every 15 min
+        events.Rule(
+            self, "AnalyzerDeepTechSchedule",
+            rule_name="sigint-analyzer-deep-tech",
+            schedule=events.Schedule.cron(minute="10,25,40,55"),
+            targets=[targets.LambdaFunction(
+                analyzer_fn,
+                event=events.RuleTargetInput.from_object({"category": "deep-tech"})
+            )]
+        )
+
+        # RSS Ingest Crypto/Finance - every 5 min (offset)
+        events.Rule(
+            self, "RssIngestCryptoSchedule",
+            rule_name="sigint-rss-ingest-crypto-finance",
+            schedule=events.Schedule.cron(minute="2,7,12,17,22,27,32,37,42,47,52,57"),
+            targets=[targets.LambdaFunction(
+                rss_ingest_fn,
+                event=events.RuleTargetInput.from_object({"category": "crypto-finance"})
+            )]
+        )
+
+        # Unified Analyzer Crypto/Finance - every 5 min
+        events.Rule(
+            self, "AnalyzerCryptoSchedule",
+            rule_name="sigint-analyzer-crypto-finance",
+            schedule=events.Schedule.rate(Duration.minutes(5)),
+            targets=[targets.LambdaFunction(
+                analyzer_fn,
+                event=events.RuleTargetInput.from_object({"category": "crypto-finance"})
             )]
         )
         

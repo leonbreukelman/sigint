@@ -6,13 +6,24 @@ Handles calls to Anthropic Claude API (Haiku)
 import json
 import logging
 import os
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
 
 import anthropic
 
 from .feed_fetcher import RawFeedItem
-from .models import Category, NarrativePattern, NewsItem
+from .models import (
+    AnalyzedItem,
+    Category,
+    NarrativePattern,
+    NewsItem,
+    PredictionMarket,
+    SourceType,
+    TwitterSignal,
+    UnifiedAnalysisResult,
+    Urgency,
+)
+from .unified_prompt import build_unified_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +261,7 @@ Respond in this exact JSON format:
 IMPORTANT: Actively match prediction markets to news items. If a news item mentions OpenAI, check for OpenAI markets. If it mentions AI policy, check for AI legislation markets. Include the match to add probabilistic context."""
 
     def _build_narrative_prompt(self, all_items: dict[str, list[NewsItem]]) -> str:
-        """Build prompt for narrative pattern detection"""
+        """Build prompt for narrative pattern detection with rich paragraphs"""
         items_by_category = []
         for cat, items in all_items.items():
             if items:
@@ -259,7 +270,7 @@ IMPORTANT: Actively match prediction markets to news items. If a news item menti
 
         all_items_text = "\n\n".join(items_by_category)
 
-        return f"""Analyze these items across categories to detect narrative patterns.
+        return f"""Analyze these items across categories to detect narrative patterns and write explanatory paragraphs.
 
 {CATEGORY_PROMPTS[Category.NARRATIVE]}
 
@@ -269,17 +280,33 @@ IMPORTANT: Actively match prediction markets to news items. If a news item menti
 === YOUR TASK ===
 Identify 1-3 narrative patterns (or none if nothing significant).
 
+For each pattern, write:
+1. A concise title (5-10 words)
+2. A brief description (1 sentence)
+3. An explanatory PARAGRAPH (3-5 sentences) that:
+   - Explains WHAT is happening
+   - Provides CONTEXT for why it matters
+   - Identifies IMPLICATIONS for readers
+4. Key implications as bullet points (2-4 points)
+5. Related entities (companies, people, technologies)
+
 A pattern must:
 - Appear in at least 2 different categories or sources
 - Represent a meaningful trend, not just coincidence
-- Be specific enough to be actionable
+- Be specific and actionable
 
 Respond in this exact JSON format:
 {{
   "patterns": [
     {{
       "title": "Brief pattern title",
-      "description": "2-3 sentence description of the pattern",
+      "description": "One-sentence summary",
+      "paragraph": "Longer explanatory paragraph with context and implications. This should read like a news analysis piece, connecting dots and explaining significance. Include what this means for the industry/world.",
+      "implications": [
+        "First key implication",
+        "Second key implication"
+      ],
+      "related_entities": ["Entity1", "Entity2"],
       "sources": ["Category1", "Category2"],
       "strength": 0.75
     }}
@@ -333,12 +360,12 @@ If no significant patterns, return: {{"patterns": []}}"""
             return [], ""
 
     def detect_narratives(self, all_items: dict[str, list[NewsItem]]) -> list[NarrativePattern]:
-        """Detect narrative patterns across categories"""
+        """Detect narrative patterns across categories with rich paragraphs"""
         prompt = self._build_narrative_prompt(all_items)
 
         try:
             response = self.client.messages.create(
-                model=self.model, max_tokens=1500, messages=[{"role": "user", "content": prompt}]
+                model=self.model, max_tokens=2500, messages=[{"role": "user", "content": prompt}]
             )
 
             content = response.content[0].text
@@ -359,11 +386,14 @@ If no significant patterns, return: {{"patterns": []}}"""
                             id=pattern_id,
                             title=p["title"],
                             description=p["description"],
-                            sources=p["sources"],
+                            sources=p.get("sources", []),
                             item_ids=[],  # Would need to match these
-                            strength=p["strength"],
+                            strength=p.get("strength", 0.5),
                             first_seen=datetime.now(UTC),
                             last_seen=datetime.now(UTC),
+                            paragraph=p.get("paragraph"),
+                            implications=p.get("implications", []),
+                            related_entities=p.get("related_entities", []),
                         )
                     )
                 return patterns
@@ -397,3 +427,244 @@ Respond with only: YES or NO"""
         except Exception as e:
             logger.error(f"LLM error for breaking check: {e}")
             return False
+
+    def analyze_unified(
+        self,
+        category: Category,
+        rss_items: list[NewsItem],
+        twitter_signals: list[TwitterSignal] | None = None,
+        prediction_markets: list[PredictionMarket] | None = None,
+    ) -> UnifiedAnalysisResult:
+        """Perform unified multi-source analysis.
+
+        This is the Stage 2 analysis method that combines all signal sources
+        and produces items with source attribution and cross-source boosting.
+
+        Args:
+            category: Category being analyzed
+            rss_items: Raw RSS items from ingestion
+            twitter_signals: Aggregated Twitter signals (velocity, trending)
+            prediction_markets: Prediction market data
+
+        Returns:
+            UnifiedAnalysisResult with analyzed items and metadata
+        """
+        import re
+        import time
+
+        start_time = time.time()
+
+        # Track sources used
+        sources_used = [SourceType.RSS] if rss_items else []
+        sources_missing = []
+
+        if twitter_signals:
+            sources_used.append(SourceType.TWITTER)
+        else:
+            sources_missing.append(SourceType.TWITTER)
+
+        if prediction_markets:
+            sources_used.append(SourceType.POLYMARKET)
+        else:
+            sources_missing.append(SourceType.POLYMARKET)
+
+        if not rss_items:
+            logger.warning(f"No RSS items for unified analysis of {category.value}")
+            return UnifiedAnalysisResult(
+                category=category,
+                items=[],
+                sources_used=sources_used,
+                sources_missing=sources_missing,
+                agent_notes="No RSS items available for analysis",
+            )
+
+        # Build unified prompt
+        prompt = build_unified_prompt(
+            rss_items=rss_items,
+            twitter_signals=twitter_signals,
+            prediction_markets=prediction_markets,
+            category=category,
+        )
+
+        logger.info(
+            f"Unified analysis for {category.value}: "
+            f"{len(rss_items)} RSS, {len(twitter_signals or [])} Twitter signals, "
+            f"{len(prediction_markets or [])} markets"
+        )
+
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=3000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+            content = response.content[0].text
+            tokens_used = response.usage.input_tokens + response.usage.output_tokens
+
+            # Extract JSON from response
+            json_match = re.search(r"\{[\s\S]*\}", content)
+            if not json_match:
+                logger.warning(f"Could not parse unified analysis response for {category.value}")
+                return self._fallback_analysis(
+                    category, rss_items, sources_used, sources_missing, start_time
+                )
+
+            result = json.loads(json_match.group())
+            selected = result.get("selected_items", [])
+            agent_notes = result.get("analysis_notes", "")
+            twitter_correlations = result.get("twitter_correlations", [])
+            market_correlations = result.get("market_correlations", [])
+
+            # Convert to AnalyzedItem objects
+            analyzed_items = []
+            items_boosted = 0
+
+            for sel in selected:
+                item_num = sel.get("item_number", 1)
+                if isinstance(item_num, list):
+                    item_num = item_num[0] if item_num else 1
+                item_idx = int(item_num) - 1
+
+                if not (0 <= item_idx < len(rss_items)):
+                    continue
+
+                original = rss_items[item_idx]
+
+                # Determine source tags
+                source_tags = [SourceType.RSS]
+                twitter_boost = sel.get("twitter_boost")
+
+                # Check for Twitter correlation
+                for tc in twitter_correlations:
+                    if tc.get("rss_item_number") == item_num:
+                        source_tags.append(SourceType.TWITTER)
+                        if not twitter_boost:
+                            twitter_boost = 0.1
+                        break
+
+                # Check for market correlation
+                market_prob = sel.get("market_probability")
+                market_q = sel.get("market_question")
+                for mc in market_correlations:
+                    if mc.get("rss_item_number") == item_num:
+                        source_tags.append(SourceType.POLYMARKET)
+                        # Get probability from markets list
+                        mkt_num = mc.get("market_number", 0)
+                        if prediction_markets and 0 < mkt_num <= len(prediction_markets):
+                            mkt = prediction_markets[mkt_num - 1]
+                            market_prob = mkt.probability
+                            market_q = mkt.question
+                        break
+
+                # Track boosted items
+                if twitter_boost and twitter_boost > 0:
+                    items_boosted += 1
+
+                # Parse urgency
+                urgency_str = sel.get("urgency", "normal").lower()
+                try:
+                    urgency = Urgency(urgency_str)
+                except ValueError:
+                    urgency = Urgency.NORMAL
+
+                # Build AnalyzedItem
+                analyzed_item = AnalyzedItem(
+                    id=original.id,
+                    title=original.title,
+                    summary=sel.get("summary", original.summary),
+                    url=original.url,
+                    source=original.source,
+                    source_url=original.source_url,
+                    category=category,
+                    urgency=urgency,
+                    relevance_score=original.relevance_score,
+                    published_at=original.published_at,
+                    analyzed_at=datetime.now(UTC),
+                    entities=sel.get("entities", original.entities),
+                    source_tags=list(set(source_tags)),  # Dedupe
+                    twitter_boost=twitter_boost,
+                    twitter_signals=[
+                        tc.get("twitter_entity", "")
+                        for tc in twitter_correlations
+                        if tc.get("rss_item_number") == item_num
+                    ],
+                    market_probability=market_prob,
+                    market_question=market_q,
+                    confidence=sel.get("confidence", 0.5),
+                    prediction_market=original.prediction_market,
+                )
+                analyzed_items.append(analyzed_item)
+
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            return UnifiedAnalysisResult(
+                category=category,
+                items=analyzed_items,
+                analyzed_at=datetime.now(UTC),
+                sources_used=sources_used,
+                sources_missing=sources_missing,
+                rss_count=len(rss_items),
+                twitter_signals_count=len(twitter_signals or []),
+                markets_count=len(prediction_markets or []),
+                items_boosted=items_boosted,
+                llm_model=self.model,
+                llm_tokens=tokens_used,
+                analysis_duration_ms=duration_ms,
+                agent_notes=agent_notes,
+            )
+
+        except Exception as e:
+            logger.exception(f"Unified analysis error for {category.value}: {e}")
+            return self._fallback_analysis(
+                category, rss_items, sources_used, sources_missing, start_time
+            )
+
+    def _fallback_analysis(
+        self,
+        category: Category,
+        rss_items: list[NewsItem],
+        sources_used: list[SourceType],
+        sources_missing: list[SourceType],
+        start_time: float,
+    ) -> UnifiedAnalysisResult:
+        """Fallback when LLM analysis fails - return top RSS items by recency."""
+        import time
+
+        # Sort by published_at, take top 5
+        sorted_items = sorted(
+            rss_items,
+            key=lambda x: x.published_at or datetime.min.replace(tzinfo=UTC),
+            reverse=True,
+        )[:5]
+
+        analyzed = [
+            AnalyzedItem(
+                id=item.id,
+                title=item.title,
+                summary=item.summary,
+                url=item.url,
+                source=item.source,
+                source_url=item.source_url,
+                category=category,
+                urgency=Urgency.NORMAL,
+                relevance_score=0.5,
+                published_at=item.published_at,
+                entities=item.entities,
+                source_tags=[SourceType.RSS],
+                confidence=0.5,
+            )
+            for item in sorted_items
+        ]
+
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        return UnifiedAnalysisResult(
+            category=category,
+            items=analyzed,
+            sources_used=sources_used,
+            sources_missing=sources_missing,
+            rss_count=len(rss_items),
+            analysis_duration_ms=duration_ms,
+            agent_notes="Fallback analysis - LLM unavailable",
+        )

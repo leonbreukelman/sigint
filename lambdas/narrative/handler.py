@@ -1,6 +1,7 @@
 """
 SIGINT Narrative Tracker Lambda
 Detects cross-source patterns and emerging narratives
+Integrates Twitter signals via correlation engine
 """
 
 import hashlib
@@ -15,8 +16,17 @@ from typing import Any
 
 sys.path.insert(0, "/opt/python")
 
+from shared.correlation_engine import CorrelationEngine
 from shared.llm_client import LLMClient
-from shared.models import Category, CategoryData, NarrativePattern, NewsItem
+from shared.models import (
+    Category,
+    CategoryData,
+    CorrelatedNarrative,
+    NarrativePattern,
+    NewsItem,
+    TweetItem,
+    TwitterCategoryData,
+)
 from shared.s3_store import S3Store
 
 logger = logging.getLogger()
@@ -140,6 +150,31 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         cross_topics = analyzer.find_cross_category_topics(items_by_category)
         logger.info(f"Found {len(cross_topics)} cross-category topics")
 
+        # === Twitter Correlation Analysis ===
+        twitter_correlations: list[CorrelatedNarrative] = []
+        correlation_engine = CorrelationEngine()
+
+        # Load Twitter data for AI/ML category (pilot)
+        twitter_data = _load_twitter_data(s3_store, Category.AI_ML)
+        if twitter_data and twitter_data.tweets:
+            logger.info(f"Loaded {len(twitter_data.tweets)} tweets for correlation")
+
+            # Get AI/ML news items for correlation
+            aiml_items = items_by_category.get("ai-ml", [])
+
+            # Run correlation analysis
+            twitter_correlations = correlation_engine.detect_correlations(
+                twitter_data.tweets, aiml_items, Category.AI_ML
+            )
+            logger.info(f"Found {len(twitter_correlations)} Twitter correlations")
+
+            # Detect divergent signals (Twitter activity not in news)
+            divergent = correlation_engine.get_divergent_signals(
+                twitter_data.tweets, aiml_items
+            )
+            if divergent:
+                logger.info(f"Found {len(divergent)} divergent Twitter signals (potential breaking)")
+
         # Use LLM to synthesize patterns
         patterns = llm_client.detect_narratives(items_by_category)
 
@@ -175,6 +210,31 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 )
             )
 
+        # Add Twitter correlation patterns
+        for corr in twitter_correlations[:3]:
+            pattern_id = hashlib.sha256(f"twitter:{corr.correlation_id}".encode()).hexdigest()[:12]
+
+            # Format lead/lag indicator
+            lead_indicator = ""
+            if corr.lead_lag_hours is not None:
+                if corr.lead_lag_hours > 0:
+                    lead_indicator = f" 📡 Twitter led by {abs(corr.lead_lag_hours):.1f}h"
+                else:
+                    lead_indicator = f" 📰 News led by {abs(corr.lead_lag_hours):.1f}h"
+
+            patterns.append(
+                NarrativePattern(
+                    id=pattern_id,
+                    title=f"🐦 {corr.title}",
+                    description=f"{corr.evidence_summary}{lead_indicator}",
+                    sources=["Twitter", "AI/ML News"],
+                    item_ids=corr.news_article_ids[:3],
+                    strength=corr.confidence_score,
+                    first_seen=corr.tweet_spike_time or datetime.now(UTC),
+                    last_seen=datetime.now(UTC),
+                )
+            )
+
         # Merge with existing patterns
         existing = s3_store.get_narrative_patterns()
         existing_ids = {p.id for p in existing}
@@ -203,17 +263,26 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         # Create narrative category data with top items from patterns
         narrative_items = []
         for pattern in existing[:5]:
+            # Build extended summary with implications if available
+            summary_parts = [pattern.description]
+            if pattern.paragraph:
+                summary_parts.append(pattern.paragraph)
+            if pattern.implications:
+                summary_parts.append("Key implications: " + "; ".join(pattern.implications[:3]))
+
+            extended_summary = " | ".join(summary_parts)
+
             # Create pseudo-item for each pattern
             narrative_item = NewsItem(
                 id=pattern.id,
                 title=pattern.title,
-                summary=pattern.description,
+                summary=extended_summary,
                 url="",  # No direct URL
                 source="SIGINT Analysis",
                 source_url="",
                 category=Category.NARRATIVE,
                 relevance_score=pattern.strength,
-                entities=[],
+                entities=pattern.related_entities if pattern.related_entities else [],
                 tags=pattern.sources,
             )
             narrative_items.append(narrative_item)
@@ -238,6 +307,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                     "total_patterns": len(existing),
                     "velocity_spikes": len(velocity_spikes),
                     "cross_topics": len(cross_topics),
+                    "twitter_correlations": len(twitter_correlations),
                     "duration_ms": duration_ms,
                 }
             ),
@@ -246,6 +316,18 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Narrative tracker error: {e}", exc_info=True)
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+
+
+def _load_twitter_data(s3_store: S3Store, category: Category) -> TwitterCategoryData | None:
+    """Load Twitter data for a category from S3"""
+    key = f"current/twitter-{category.value}.json"
+    try:
+        data = s3_store.get_json(key)
+        if data:
+            return TwitterCategoryData(**data)
+    except Exception as e:
+        logger.debug(f"No Twitter data for {category.value}: {e}")
+    return None
 
 
 if __name__ == "__main__":

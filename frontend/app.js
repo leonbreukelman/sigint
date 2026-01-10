@@ -177,6 +177,28 @@ function renderNewsItem(item, showSummary = true) {
     const urgencyClass = item.urgency ? `urgency-${item.urgency}` : '';
     const tags = item.tags || [];
     const pm = item.prediction_market;
+    const sourceTags = item.source_tags || [];
+    
+    // Build source attribution badges (RSS, Twitter, Polymarket)
+    let sourceAttribution = '';
+    if (sourceTags.length > 0) {
+        const badges = sourceTags.map(tag => {
+            switch(tag) {
+                case 'rss': return '<span class="source-badge source-rss" title="RSS Feed">📰</span>';
+                case 'twitter': return '<span class="source-badge source-twitter" title="Twitter Signal">🐦</span>';
+                case 'polymarket': return '<span class="source-badge source-polymarket" title="Prediction Market">📊</span>';
+                case 'ticker': return '<span class="source-badge source-ticker" title="Market Ticker">💹</span>';
+                default: return '';
+            }
+        }).filter(b => b).join('');
+        
+        // Add boost indicator if Twitter boosted
+        const boostIndicator = item.twitter_boost && item.twitter_boost > 0 
+            ? `<span class="boost-indicator" title="Boosted by Twitter correlation (+${Math.round(item.twitter_boost * 100)}%)">⚡</span>` 
+            : '';
+        
+        sourceAttribution = `<span class="source-attribution">${badges}${boostIndicator}</span>`;
+    }
     
     // Build prediction market badge if present
     let pmBadge = '';
@@ -203,7 +225,7 @@ function renderNewsItem(item, showSummary = true) {
     return `
         <article class="news-item ${urgencyClass}">
             <div class="news-item-header">
-                <span class="news-item-source">${item.source || 'Unknown'}</span>
+                <span class="news-item-source">${item.source || 'Unknown'}${sourceAttribution}</span>
                 <span class="news-item-time">${formatRelativeTime(item.published_at || item.fetched_at)}</span>
             </div>
             <h3 class="news-item-title">
@@ -223,9 +245,16 @@ function renderNewsItem(item, showSummary = true) {
 function renderNarrativeItem(item) {
     const strength = item.relevance_score || 0.5;
     const sources = item.tags || [];
+    const entities = item.entities || [];
+    
+    // Parse extended summary (description | paragraph | implications)
+    const summaryParts = (item.summary || '').split(' | ');
+    const description = summaryParts[0] || '';
+    const paragraph = summaryParts[1] || '';
+    const implications = summaryParts[2] || '';
     
     return `
-        <article class="news-item">
+        <article class="news-item narrative-item">
             <div class="news-item-header">
                 <span class="narrative-strength">
                     <div class="strength-bar">
@@ -236,7 +265,22 @@ function renderNarrativeItem(item) {
                 <span class="news-item-time">${formatRelativeTime(item.fetched_at)}</span>
             </div>
             <h3 class="news-item-title">${item.title}</h3>
-            <p class="news-item-summary">${item.summary}</p>
+            <p class="news-item-summary">${description}</p>
+            ${paragraph ? `
+                <div class="narrative-paragraph">
+                    <p>${paragraph}</p>
+                </div>
+            ` : ''}
+            ${implications ? `
+                <div class="narrative-implications">
+                    <strong>So what?</strong> ${implications}
+                </div>
+            ` : ''}
+            ${entities.length > 0 ? `
+                <div class="narrative-entities">
+                    ${entities.slice(0, 5).map(e => `<span class="entity-tag">${e}</span>`).join('')}
+                </div>
+            ` : ''}
             ${sources.length > 0 ? `
                 <div class="news-item-tags">
                     ${sources.map(s => `<span class="tag">${s}</span>`).join('')}

@@ -1,0 +1,20 @@
+{
+  "feature_description": "Refactor SIGINT to unified multi-source analysis architecture. Stage 1: Separate ingestion for RSS, Twitter, Polymarket, Tickers storing raw data to S3. Stage 2: New analyzer Lambda loads all sources per category and runs single unified LLM analysis with cross-source boosting. Stage 3: Narrative writer generates explanatory paragraphs with implications. Items should display source tags [RSS] [Twitter] [Polymarket]. Twitter velocity should boost correlated RSS items.",
+  "complexity": "complex",
+  "workflow_path": "init \u2192 analyst \u2192 spec_generator \u2192 constitution \u2192 architect \u2192 task_decomposer",
+  "current_phase": "error",
+  "agent_history": [
+    "analyst",
+    "spec_generator",
+    "constitution",
+    "architect",
+    "task_decomposer"
+  ],
+  "started_at": "2026-01-09T18:23:40.493524",
+  "completed_at": "2026-01-09T18:52:57.926386",
+  "violations_count": 8,
+  "entities_count": 0,
+  "tasks_count": 0,
+  "files_generated": 0,
+  "code_generation_confidence": null
+}

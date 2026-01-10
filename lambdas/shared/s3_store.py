@@ -11,7 +11,16 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 
-from .models import Category, CategoryData, DashboardState, NarrativePattern, NewsItem
+from .models import (
+    Category,
+    CategoryData,
+    DashboardState,
+    NarrativePattern,
+    NewsItem,
+    RawSourceData,
+    SourceType,
+    UnifiedAnalysisResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +69,146 @@ class S3Store:
         except Exception as e:
             logger.error(f"Error writing {key} to S3: {e}")
             raise
+
+    # =========================================================================
+    # Public JSON Operations (for generic key/value storage)
+    # =========================================================================
+
+    def get_json(self, key: str) -> dict[str, Any] | None:
+        """Read JSON file from S3 by key.
+
+        Public wrapper around _read_json for generic storage needs
+        (e.g., Twitter data, cache files).
+        """
+        return self._read_json(key)
+
+    def put_json(
+        self, key: str, data: dict[str, Any], cache_control: str = "max-age=60"
+    ) -> None:
+        """Write JSON file to S3 by key.
+
+        Public wrapper around _write_json for generic storage needs
+        (e.g., Twitter data, cache files).
+        """
+        self._write_json(key, data, cache_control)
+
+    # =========================================================================
+    # Raw Data Layer Operations (Stage 1 of Unified Architecture)
+    # =========================================================================
+
+    def _raw_key(self, category: Category, source_type: SourceType) -> str:
+        """Generate S3 key for raw data storage."""
+        return f"raw/{category.value}/{source_type.value}.json"
+
+    def save_raw_data(self, raw_data: RawSourceData) -> str:
+        """Save raw ingested data to S3.
+
+        Stores raw data from any source (RSS, Twitter, Polymarket, Ticker)
+        in the raw/ prefix for later unified analysis.
+
+        Args:
+            raw_data: RawSourceData object with source-specific data
+
+        Returns:
+            S3 key where data was saved
+        """
+        key = self._raw_key(raw_data.category, raw_data.source_type)
+        self._write_json(key, raw_data.model_dump(mode="json"), cache_control="max-age=120")
+        logger.info(
+            f"Saved raw {raw_data.source_type.value} data for {raw_data.category.value}: "
+            f"{raw_data.item_count} items"
+        )
+        return key
+
+    def load_raw_data(
+        self, category: Category, source_type: SourceType
+    ) -> RawSourceData | None:
+        """Load raw ingested data from S3.
+
+        Args:
+            category: Category to load data for
+            source_type: Type of source data to load
+
+        Returns:
+            RawSourceData if found, None otherwise
+        """
+        key = self._raw_key(category, source_type)
+        data = self._read_json(key)
+        if data:
+            try:
+                return RawSourceData(**data)
+            except Exception as e:
+                logger.error(f"Failed to parse raw data from {key}: {e}")
+                return None
+        return None
+
+    def load_all_raw_data(self, category: Category) -> dict[SourceType, RawSourceData]:
+        """Load all available raw data for a category.
+
+        Args:
+            category: Category to load data for
+
+        Returns:
+            Dict mapping SourceType to RawSourceData for available sources
+        """
+        result: dict[SourceType, RawSourceData] = {}
+        for source_type in SourceType:
+            raw_data = self.load_raw_data(category, source_type)
+            if raw_data and raw_data.item_count > 0:
+                result[source_type] = raw_data
+                logger.debug(
+                    f"Loaded {raw_data.item_count} {source_type.value} items for {category.value}"
+                )
+        logger.info(f"Loaded raw data from {len(result)} sources for {category.value}")
+        return result
+
+    def save_unified_analysis(self, result: UnifiedAnalysisResult) -> str:
+        """Save unified analysis result to current/ for dashboard consumption.
+
+        This replaces the old save_category_data for analyzed output.
+
+        Args:
+            result: UnifiedAnalysisResult from analyzer Lambda
+
+        Returns:
+            S3 key where data was saved
+        """
+        key = f"current/{result.category.value}.json"
+
+        # Convert to CategoryData-compatible format for backward compatibility
+        news_items = []
+        for item in result.items:
+            news_item = NewsItem(
+                id=item.id,
+                title=item.title,
+                summary=item.summary,
+                url=item.url,
+                source=item.source,
+                source_url=item.url,  # Use URL as source_url
+                category=item.category,
+                urgency=item.urgency,
+                relevance_score=item.confidence,  # Use confidence as relevance
+                published_at=item.published_at,
+                fetched_at=item.analyzed_at,
+                entities=item.entities,
+                tags=[st.value for st in item.source_tags],  # Convert source tags to tags
+                prediction_market=item.prediction_market,
+            )
+            news_items.append(news_item)
+
+        category_data = CategoryData(
+            category=result.category,
+            items=news_items,
+            last_updated=result.analyzed_at,
+            agent_notes=result.agent_notes,
+        )
+
+        self._write_json(key, category_data.model_dump(mode="json"), cache_control="max-age=30")
+        logger.info(
+            f"Saved unified analysis for {result.category.value}: "
+            f"{len(result.items)} items from {len(result.sources_used)} sources"
+        )
+        return key
 
     # =========================================================================
     # Current Data Operations

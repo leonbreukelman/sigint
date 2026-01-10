@@ -405,6 +405,41 @@ body {
     color: var(--accent-blue);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Source Attribution Badges */
+.source-attribution {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 4px;
+}
+
+.source-badge {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    cursor: help;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.source-badge:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.boost-indicator {
+    font-size: 0.625rem;
+    color: var(--accent-gold);
+    animation: pulse-glow 2s infinite;
+    cursor: help;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; text-shadow: 0 0 4px var(--accent-gold); }
 }
 
 .news-item-time {
@@ -581,6 +616,58 @@ body {
     height: 100%;
     background: var(--accent-purple);
     transition: width 0.3s ease;
+}
+
+/* Enhanced Narrative Item Styling */
+.narrative-item {
+    background: linear-gradient(135deg, rgba(170, 102, 255, 0.08), rgba(170, 102, 255, 0.02));
+}
+
+.narrative-paragraph {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: rgba(170, 102, 255, 0.05);
+    border-left: 2px solid var(--accent-purple);
+    border-radius: 0 4px 4px 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.narrative-paragraph p {
+    margin: 0;
+}
+
+.narrative-implications {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: rgba(255, 170, 0, 0.08);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--accent-amber);
+}
+
+.narrative-implications strong {
+    color: var(--accent-green);
+    font-weight: 600;
+    margin-right: 4px;
+}
+
+.narrative-entities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.entity-tag {
+    padding: 2px 6px;
+    background: rgba(0, 255, 200, 0.1);
+    border: 1px solid rgba(0, 255, 200, 0.3);
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--accent-green);
 }
 
 /* Footer */

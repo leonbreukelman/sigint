@@ -284,3 +284,158 @@ class TestLLMClientBreaking:
             result = client.evaluate_breaking(sample_news_item)
 
             assert result is True
+
+
+class TestLLMClientUnifiedAnalysis:
+    """Tests for analyze_unified method."""
+
+    def test_analyze_unified_empty_rss_returns_empty_result(self):
+        with patch("anthropic.Anthropic"):
+            from shared.llm_client import LLMClient
+            from shared.models import Category, SourceType
+
+            client = LLMClient(api_key="test-key")
+            result = client.analyze_unified(Category.AI_ML, rss_items=[])
+
+            assert result.category == Category.AI_ML
+            assert result.items == []
+            assert result.rss_count == 0
+            assert SourceType.TWITTER in result.sources_missing
+
+    def test_analyze_unified_success(self, sample_news_item):
+        with patch("anthropic.Anthropic") as mock_anthropic:
+            mock_client = MagicMock()
+            mock_anthropic.return_value = mock_client
+
+            # Mock LLM response with unified analysis format
+            mock_response = MagicMock()
+            mock_response.content = [
+                MagicMock(
+                    text=json.dumps(
+                        {
+                            "selected_items": [
+                                {
+                                    "item_number": 1,
+                                    "summary": "Test summary",
+                                    "urgency": "high",
+                                    "entities": ["OpenAI"],
+                                    "confidence": 0.8,
+                                }
+                            ],
+                            "twitter_correlations": [],
+                            "market_correlations": [],
+                            "analysis_notes": "Test analysis",
+                        }
+                    )
+                )
+            ]
+            mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)
+            mock_client.messages.create.return_value = mock_response
+
+            from shared.llm_client import LLMClient
+            from shared.models import Category, SourceType
+
+            client = LLMClient(api_key="test-key")
+            result = client.analyze_unified(Category.AI_ML, rss_items=[sample_news_item])
+
+            assert result.category == Category.AI_ML
+            assert len(result.items) == 1
+            assert result.items[0].title == sample_news_item.title
+            assert result.items[0].summary == "Test summary"
+            assert SourceType.RSS in result.items[0].source_tags
+            assert result.rss_count == 1
+            assert result.llm_tokens == 150
+            assert result.agent_notes == "Test analysis"
+
+    def test_analyze_unified_with_twitter_signals(self, sample_news_item):
+        with patch("anthropic.Anthropic") as mock_anthropic:
+            mock_client = MagicMock()
+            mock_anthropic.return_value = mock_client
+
+            mock_response = MagicMock()
+            mock_response.content = [
+                MagicMock(
+                    text=json.dumps(
+                        {
+                            "selected_items": [
+                                {
+                                    "item_number": 1,
+                                    "summary": "Test summary",
+                                    "urgency": "normal",
+                                    "twitter_boost": 0.2,
+                                    "confidence": 0.9,
+                                }
+                            ],
+                            "twitter_correlations": [
+                                {"rss_item_number": 1, "twitter_entity": "@OpenAI"}
+                            ],
+                            "market_correlations": [],
+                            "analysis_notes": "Twitter boost applied",
+                        }
+                    )
+                )
+            ]
+            mock_response.usage = MagicMock(input_tokens=200, output_tokens=100)
+            mock_client.messages.create.return_value = mock_response
+
+            from shared.llm_client import LLMClient
+            from shared.models import Category, SourceType, TwitterSignal
+
+            signal = TwitterSignal(
+                entity="@OpenAI",
+                velocity=5.0,
+                velocity_ratio=3.0,
+                is_spike=True,
+            )
+
+            client = LLMClient(api_key="test-key")
+            result = client.analyze_unified(
+                Category.AI_ML, rss_items=[sample_news_item], twitter_signals=[signal]
+            )
+
+            assert result.category == Category.AI_ML
+            assert len(result.items) == 1
+            assert result.items[0].twitter_boost == 0.2
+            assert SourceType.TWITTER in result.items[0].source_tags
+            assert "@OpenAI" in result.items[0].twitter_signals
+            assert result.twitter_signals_count == 1
+            assert result.items_boosted == 1
+
+    def test_analyze_unified_api_error_uses_fallback(self, sample_news_item):
+        with patch("anthropic.Anthropic") as mock_anthropic:
+            mock_client = MagicMock()
+            mock_anthropic.return_value = mock_client
+            mock_client.messages.create.side_effect = Exception("API Error")
+
+            from shared.llm_client import LLMClient
+            from shared.models import Category, SourceType
+
+            client = LLMClient(api_key="test-key")
+            result = client.analyze_unified(Category.AI_ML, rss_items=[sample_news_item])
+
+            # Should use fallback analysis
+            assert result.category == Category.AI_ML
+            assert len(result.items) == 1
+            assert result.agent_notes == "Fallback analysis - LLM unavailable"
+            assert SourceType.RSS in result.items[0].source_tags
+
+    def test_analyze_unified_invalid_json_uses_fallback(self, sample_news_item):
+        with patch("anthropic.Anthropic") as mock_anthropic:
+            mock_client = MagicMock()
+            mock_anthropic.return_value = mock_client
+
+            mock_response = MagicMock()
+            mock_response.content = [MagicMock(text="Not valid JSON at all")]
+            mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)
+            mock_client.messages.create.return_value = mock_response
+
+            from shared.llm_client import LLMClient
+            from shared.models import Category
+
+            client = LLMClient(api_key="test-key")
+            result = client.analyze_unified(Category.AI_ML, rss_items=[sample_news_item])
+
+            # Should use fallback analysis
+            assert result.category == Category.AI_ML
+            assert len(result.items) == 1
+            assert result.agent_notes == "Fallback analysis - LLM unavailable"

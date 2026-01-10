@@ -1,0 +1,20 @@
+{
+  "feature_description": "Twitter/X integration with hybrid list-based and event-driven search, deep narrative correlation, AI/ML pilot",
+  "complexity": "complex",
+  "workflow_path": "init \u2192 analyst \u2192 spec_generator \u2192 constitution \u2192 architect \u2192 task_decomposer",
+  "current_phase": "error",
+  "agent_history": [
+    "analyst",
+    "spec_generator",
+    "constitution",
+    "architect",
+    "task_decomposer"
+  ],
+  "started_at": "2026-01-09T17:12:07.097736",
+  "completed_at": "2026-01-09T17:19:51.300894",
+  "violations_count": 7,
+  "entities_count": 0,
+  "tasks_count": 0,
+  "files_generated": 0,
+  "code_generation_confidence": null
+}
